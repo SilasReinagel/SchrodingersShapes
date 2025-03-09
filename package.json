@@ -1,0 +1,9 @@
+{
+  "name": "quantum-shapes-puzzle",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "verify": "cd src && npm run compile && npm run test"
+  }
+}

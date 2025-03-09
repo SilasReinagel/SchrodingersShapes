@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Color Palette */
+  --background: #F9FAFB;
+  --shape-square: #AECBFA;
+  --shape-circle: #F9CADA;
+  --shape-triangle: #FFF2AF;
+  --highlight: #32C8C0;
+  --text-primary: #1A1A1A;
+  --text-secondary: #4A5568;
+  --grid-line: #E2E8F0;
+}
+
+@layer base {
+  body {
+    @apply bg-[--background] text-[--text-primary] min-h-screen;
+    font-family: 'Open Sans', sans-serif;
+  }
+}
+
+@layer components {
+  .nav-button {
+    @apply px-4 py-2 rounded-lg hover:bg-[--highlight]/10 transition-colors;
+  }
+
+  .grid-cell {
+    @apply w-20 h-20 border border-[--grid-line] flex items-center justify-center 
+           cursor-pointer hover:bg-[--highlight]/5 transition-all duration-200;
+  }
+
+  .shape {
+    @apply w-16 h-16 transition-all duration-300;
+  }
+
+  .superposition {
+    @apply text-4xl font-light text-[--text-secondary] animate-pulse;
+  }
+} 
