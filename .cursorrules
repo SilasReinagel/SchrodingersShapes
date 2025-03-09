@@ -1,0 +1,7 @@
+Use React Typescript + Tailwind V4 + Vite + Vitest + Framer Motion.
+
+ES6 Syntax
+
+In Agent Mode, always ensure all unit tests are passing and Typescript is not throwing any errors, before moving on to the next task.
+
+
