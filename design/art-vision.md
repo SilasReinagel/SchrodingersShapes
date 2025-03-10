@@ -14,12 +14,12 @@ Here’s a cohesive **art vision** for *Schrödinger’s Shapes* that balances a
 1. **Primary Background**  
    - A near-white or very light gray (e.g., `#F9FAFB` or `#F0F0F0`) keeps the stage uncluttered.  
 2. **Accent Colors**  
-   - Limited set of soft, pastel-like tones for shapes:
-     - **Square**: Pastel Blue (e.g., `#AECBFA`)  
-     - **Circle**: Pastel Pink (e.g., `#F9CADA`)  
-     - **Triangle**: Pastel Yellow (e.g., `#FFF2AF`)  
+   - Soft, pastel-like tones for shapes, inspired by the image:
+     - **Square**: Soft Blue (e.g., `#AECBFA`)  
+     - **Circle**: Soft Pink (e.g., `#F9CADA`)  
+     - **Triangle**: Soft Yellow (e.g., `#FFF2AF`)  
    - These gentle hues make shapes visually distinct but not glaring.  
-3. **Superposition**  
+3. **Cat**  
    - “?” cells could have a subtle gradient or faint swirling pattern (e.g., a gentle mix of pastel blue/pink/yellow) or a light shimmer animation to hint at the uncertain state.  
 4. **Highlight**  
    - Use a consistent highlight color (e.g., **teal** `#32C8C0` or a bright accent color) for active states, such as hovering over a cell or confirming a shape selection.
@@ -45,8 +45,8 @@ Here’s a cohesive **art vision** for *Schrödinger’s Shapes* that balances a
 1. **Shapes** (Square, Circle, Triangle)  
    - Drawn with thin, consistent stroke (1–2 px) for outlines and filled with pastel colors.  
    - Edges slightly rounded (just a tiny radius for squares, gentle arcs for triangles) can soften the look so it doesn’t feel too rigid or harsh.  
-2. **Superposition Icon** (“?”)  
-   - A simple question mark inside a faint outline, or a minimal swirl.  
+2. **Cat Icon**  
+   - A simple cat silhouette inside a faint outline, or a minimal swirl.  
    - Could occasionally *gently pulse* or fade in/out to visually convey uncertainty.  
 
 3. **Constraint Icons**  
@@ -84,4 +84,4 @@ Here’s a cohesive **art vision** for *Schrödinger’s Shapes* that balances a
 
 ## **Conclusion**
 
-In *Schrödinger’s Shapes*, the **art vision** merges **light pastels**, **clean line art**, and **gentle animations** to produce a puzzle experience that feels both **intellectual** (thanks to the minimalism) and **mysteriously playful** (thanks to the quantum-inspired superpositions). This cohesive design approach supports the game’s unique logic mechanic while maintaining a web-friendly, **virally shareable** aesthetic.
+In *Schrödinger’s Shapes*, the **art vision** merges **light pastels**, **clean line art**, and **gentle animations** to produce a puzzle experience that feels both **intellectual** (thanks to the minimalism) and **mysteriously playful** (thanks to the quantum-inspired cats). This cohesive design approach supports the game’s unique logic mechanic while maintaining a web-friendly, **virally shareable** aesthetic.

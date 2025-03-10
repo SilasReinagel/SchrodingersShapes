@@ -1,7 +1,7 @@
 # Schrödinger's Shapes - Game Design Document
 
 ## Overview
-A minimalist puzzle game where players manipulate quantum shapes in superposition states to solve grid-based challenges.
+A minimalist puzzle game where players manipulate quantum shapes in cat states to solve grid-based challenges.
 
 ## Target Audience
 - Primary: Puzzle game enthusiasts ages 12+
@@ -10,7 +10,7 @@ A minimalist puzzle game where players manipulate quantum shapes in superpositio
 
 ## Core Game Loop
 1. Player examines puzzle grid and constraints
-2. Strategically resolves superposition cells into specific shapes
+2. Strategically resolves cat cells into specific shapes
 3. Validates solution against level requirements
 4. Progresses to next puzzle upon success
 5. Returns daily for new puzzle challenges
@@ -19,19 +19,19 @@ A minimalist puzzle game where players manipulate quantum shapes in superpositio
 
 ### Progression
 1. Tutorial Levels (2x2 grid)
-   - Introduce basic shapes and superposition
+   - Introduce basic shapes and cat states
    - Simple row/column constraints
    - Guided solutions
 
 2. Early Game (3x3 grid) 
    - Basic shape combinations
    - Single constraint types
-   - Limited superpositions
+   - Limited cat states
 
 3. Mid Game (3x3 and 4x4)
    - Multiple constraint types
    - Shape relationships
-   - Strategic superposition management
+   - Strategic cat state management
 
 4. Late Game (4x4 and larger)
    - Complex multi-constraint puzzles
@@ -47,7 +47,7 @@ A minimalist puzzle game where players manipulate quantum shapes in superpositio
 ### Level Components
 - Grid size (2x2 to 5x5)
 - Available shapes (Square, Circle, Triangle)
-- Initial superposition states
+- Initial cat states
 - Row/column/global constraints
 - Move limits (optional)
 - Time limits (optional)

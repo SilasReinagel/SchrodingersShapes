@@ -194,3 +194,73 @@ Minimalist logo design for "Schrödinger's Shapes":
 - --ar 1:1 --v 5 --s 750 --q 2
 
 ---
+
+
+Beautiful square icon inspired by Bejeweled:
+- Design elements:
+  - Grid of colorful geometric shapes
+  - Shapes include circles, squares, diamonds, and question marks
+  - Soft pastel colors: pink, blue, yellow, and white
+  - Shapes have a subtle 3D effect with shadows
+- Color palette:
+  - Soft pink (#FFB5BA)
+  - Soft blue (#A8D8FF)
+  - Soft yellow (#FFE5B4)
+  - White background for contrast
+- Style:
+  - Clean and modern with a playful touch
+  - Minimalist design with focus on shapes
+  - Smooth, rounded edges for a friendly feel
+- Integration:
+  - Shapes should reflect the Schrödinger's Shapes theme
+  - Incorporate question marks as a nod to the game's concept
+- Aesthetic:
+  - Balanced and harmonious composition
+  - Emphasizes simplicity and elegance
+  - Ensures clarity and recognizability at small sizes
+- --ar 1:1 --v 5 --s 750 --q 2
+
+---
+
+Square Shape:
+- Design elements:
+  - Simple, clean square shape
+  - Soft pastel color palette
+  - Subtle 3D effect with shadows
+- Color palette:
+  - Soft pink (#FFB5BA)
+  - White background for contrast
+- Style:
+  - Minimalist design with focus on the shape
+  - Smooth, rounded edges for a friendly feel
+- Integration:
+  - Reflects the Schrödinger's Shapes theme
+  - Incorporates question marks as a nod to the game's concept
+- Aesthetic:
+  - Balanced and harmonious composition
+  - Emphasizes simplicity and elegance
+  - Ensures clarity and recognizability at small sizes
+- --ar 1:1 --v 5 --s 750 --q 2
+
+---
+
+Shape Type Cat:
+- Design elements:
+  - Silhouette of a cat in various poses
+  - Soft pastel color palette
+  - Subtle 3D effect with shadows
+- Color palette:
+  - Soft blue (#A8D8FF)
+  - White background for contrast
+- Style:
+  - Minimalist design with focus on the cat shape
+  - Smooth, rounded edges for a friendly feel
+- Integration:
+  - Reflects the Schrödinger's Shapes theme
+  - Incorporates question marks as a nod to the game's concept
+- Aesthetic:
+  - Balanced and harmonious composition
+  - Emphasizes simplicity and elegance
+  - Ensures clarity and recognizability at small sizes
+- --ar 1:1 --v 5 --s 750 --q 2
+

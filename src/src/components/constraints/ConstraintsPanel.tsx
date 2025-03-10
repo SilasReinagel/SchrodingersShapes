@@ -28,19 +28,31 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints 
   };
 
   return (
-    <div className="space-y-2 p-4 bg-white rounded-xl shadow-sm">
-      <h2 className="text-lg font-semibold mb-3">Constraints</h2>
-      {constraints.map((constraint, index) => (
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
-          className="p-2 bg-gray-100 rounded-lg"
-        >
-          {formatConstraint(constraint)}
-        </motion.div>
-      ))}
-    </div>
+    <motion.div
+      className="floating-panel w-full lg:w-[300px]"
+      initial={{ x: 20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+    >
+      <h2 className="text-lg md:text-xl font-semibold mb-4 bg-gradient-to-r from-shape-circle to-shape-triangle bg-clip-text text-transparent">
+        Constraints
+      </h2>
+      <div className="space-y-2 md:space-y-3">
+        {constraints.map((constraint, index) => (
+          <motion.div
+            key={index}
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ 
+              duration: 0.3,
+              delay: index * 0.1
+            }}
+            className="inner-panel text-base md:text-lg"
+          >
+            {formatConstraint(constraint)}
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   );
 }; 

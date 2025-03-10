@@ -48,16 +48,27 @@ const App = () => {
   if (!puzzle) return null;
 
   return (
-    <div className="min-h-screen bg-[--background] text-[--text-primary]">
+    <div className="h-screen text-text-primary relative overflow-hidden flex flex-col">
+      {/* Background Bubbles */}
+      <div className="bubble-1" />
+      <div className="bubble-2" />
+      <div className="bubble-3" />
+
       {/* Navigation Bar */}
       <motion.nav 
-        className="flex items-center justify-between p-4 bg-white shadow-sm"
+        className="relative z-10 flex items-center justify-between p-4 md:p-6"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
-        <h1 className="text-xl font-semibold">Schrödinger's Shapes</h1>
+        <h1 className="text-xl md:text-2xl font-bold">
+          <span className="bg-gradient-to-r from-shape-square to-shape-circle bg-clip-text text-transparent">
+            Schrödinger's Shapes
+          </span>
+        </h1>
         <div className="flex items-center space-x-4">
-          <div className="text-lg font-mono">{formatTime(timer)}</div>
+          <div className="text-lg font-mono bg-white px-4 py-2 rounded-full shadow-sm">
+            {formatTime(timer)}
+          </div>
           <button className="nav-button">
             Share
           </button>
@@ -65,35 +76,35 @@ const App = () => {
       </motion.nav>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row items-start justify-center gap-8">
-          {/* Puzzle Grid */}
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Grid 
-              grid={puzzle.grid}
-              onCellClick={handleCellClick}
-            />
-          </motion.div>
+      <main className="flex-1 container mx-auto px-4 py-4 relative z-10 flex items-center justify-center">
+        <div className="flex flex-col lg:flex-row items-start justify-center gap-6 max-h-[calc(100vh-140px)]">
+          {/* Puzzle Grid Container */}
+          <div className="w-full lg:w-auto">
+            <div className="max-h-[min(65vh,65vw)] aspect-square">
+              <Grid 
+                grid={puzzle.grid}
+                onCellClick={handleCellClick}
+              />
+            </div>
+          </div>
 
           {/* Constraints Panel */}
-          <ConstraintsPanel constraints={puzzle.constraints} />
+          <div className="w-full lg:w-auto max-h-[65vh] overflow-y-auto">
+            <ConstraintsPanel constraints={puzzle.constraints} />
+          </div>
         </div>
       </main>
 
       {/* Footer */}
       <motion.footer 
-        className="fixed bottom-0 left-0 right-0 p-4 bg-white shadow-sm flex justify-center items-center space-x-4"
+        className="relative z-10 p-4 md:p-6 flex justify-center items-center space-x-6"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
         <button className="nav-button">
           Undo
         </button>
-        <div className="text-sm text-[--text-secondary]">
+        <div className="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
           Moves: 0
         </div>
       </motion.footer>
