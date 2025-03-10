@@ -3,46 +3,58 @@ import { motion } from 'framer-motion';
 import { PuzzleGenerator } from './game/PuzzleGenerator';
 import { Grid } from './components/grid/Grid';
 import { ConstraintsPanel } from './components/constraints/ConstraintsPanel';
-import type { Puzzle } from './game/types';
+import type { Puzzle, Shape } from './game/types';
+import { Timer } from './components/Timer';
 
 const App = () => {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
-  const [timer, setTimer] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [moves, setMoves] = useState<Puzzle[]>([]);
 
   useEffect(() => {
-    // Generate a new puzzle when the component mounts
-    setPuzzle(PuzzleGenerator.generate({ difficulty: 'medium' }));
+    const initialPuzzle = PuzzleGenerator.generate({ difficulty: 'medium' });
+    setPuzzle(initialPuzzle);
+    setMoves([initialPuzzle]);
   }, []);
-
-  useEffect(() => {
-    let interval: number | undefined;
-    if (isPlaying) {
-      interval = window.setInterval(() => {
-        setTimer(t => t + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isPlaying]);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleCellClick = (row: number, col: number): void => {
     if (!puzzle) return;
     
-    // Start timer on first move
     if (!isPlaying) {
       setIsPlaying(true);
     }
 
-    // TODO: Implement cell click logic to cycle through shapes or show shape selector
-    console.log(`Clicked cell at row ${row}, col ${col}`);
+    const cell = puzzle.grid[row][col];
+    if (cell.shape === 'cat' && !cell.locked) {
+      // Cell click will be handled by the ShapePicker
+      return;
+    }
+  };
+
+  const handleShapeSelect = (row: number, col: number, shape: Shape) => {
+    if (!puzzle) return;
+
+    const newPuzzle = {
+      ...puzzle,
+      grid: puzzle.grid.map((r, i) =>
+        r.map((cell, j) =>
+          i === row && j === col
+            ? { ...cell, shape }
+            : cell
+        )
+      )
+    };
+
+    setPuzzle(newPuzzle);
+    setMoves(prev => [...prev, newPuzzle]);
+  };
+
+  const handleUndo = () => {
+    if (moves.length <= 1) return;
+    
+    const newMoves = moves.slice(0, -1);
+    setPuzzle(newMoves[newMoves.length - 1]);
+    setMoves(newMoves);
   };
 
   if (!puzzle) return null;
@@ -66,9 +78,7 @@ const App = () => {
           </span>
         </h1>
         <div className="flex items-center space-x-4">
-          <div className="text-lg font-mono bg-white px-4 py-2 rounded-full shadow-sm">
-            {formatTime(timer)}
-          </div>
+          <Timer isPlaying={isPlaying} />
           <button className="nav-button">
             Share
           </button>
@@ -84,6 +94,7 @@ const App = () => {
               <Grid 
                 grid={puzzle.grid}
                 onCellClick={handleCellClick}
+                onShapeSelect={handleShapeSelect}
               />
             </div>
           </div>
@@ -101,11 +112,15 @@ const App = () => {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
-        <button className="nav-button">
+        <button 
+          className="nav-button"
+          onClick={handleUndo}
+          disabled={moves.length <= 1}
+        >
           Undo
         </button>
         <div className="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
-          Moves: 0
+          Moves: {moves.length - 1}
         </div>
       </motion.footer>
     </div>

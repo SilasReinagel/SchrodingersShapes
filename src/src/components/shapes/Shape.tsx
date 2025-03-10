@@ -8,9 +8,8 @@ interface ShapeProps {
 }
 
 type ShapeStyle = {
+  image: string;
   className: string;
-  element: typeof motion.div;
-  style?: React.CSSProperties;
 };
 
 export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = false }) => {
@@ -29,42 +28,35 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
           ease: "easeInOut"
         }}
       >
-        <span className="text-4xl lg:text-6xl">?</span>
+        <img 
+          src="/art/cat_01.png" 
+          alt="?" 
+          className="w-full h-full object-contain p-2"
+        />
       </motion.div>
     );
   }
 
   const shapeStyles: Record<Exclude<ShapeType, 'cat'>, ShapeStyle> = {
     square: {
-      className: 'bg-shape-square w-4/5 h-4/5 rounded-xl',
-      element: motion.div,
-      style: {
-        boxShadow: '0 4px 12px rgba(255, 181, 186, 0.2)'
-      }
+      image: '/art/square_01.png',
+      className: 'w-4/5 h-4/5'
     },
     circle: {
-      className: 'bg-shape-circle w-4/5 h-4/5 rounded-full',
-      element: motion.div,
-      style: {
-        boxShadow: '0 4px 12px rgba(168, 216, 255, 0.2)'
-      }
+      image: '/art/circle_01.png',
+      className: 'w-4/5 h-4/5'
     },
     triangle: {
-      className: 'bg-shape-triangle w-4/5 h-4/5',
-      element: motion.div,
-      style: {
-        clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
-        boxShadow: '0 4px 12px rgba(255, 229, 180, 0.2)'
-      }
+      image: '/art/triangle_01.png',
+      className: 'w-4/5 h-4/5'
     }
   };
 
-  const { element: Element, className: shapeClassName, style } = shapeStyles[type];
+  const { image, className: shapeClassName } = shapeStyles[type];
 
   return (
-    <Element
+    <motion.div
       className={`shape ${shapeClassName} ${className} ${isLocked ? 'opacity-50' : ''}`}
-      style={style}
       initial={{ scale: 0.8, opacity: isLocked ? 0.5 : 0 }}
       animate={{ scale: 1, opacity: isLocked ? 0.5 : 1 }}
       transition={{ 
@@ -72,6 +64,12 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
         stiffness: 400,
         damping: 25
       }}
-    />
+    >
+      <img 
+        src={image} 
+        alt={type} 
+        className="w-full h-full object-contain p-1"
+      />
+    </motion.div>
   );
 }; 
