@@ -1,18 +1,23 @@
-export type Shape = 'square' | 'circle' | 'triangle' | 'cat';
+export const CatShape = 0;
+export const SquareShape = 1;
+export const CircleShape = 2;
+export const TriangleShape = 3;
+
+export type ShapeId = typeof CatShape | typeof SquareShape | typeof CircleShape | typeof TriangleShape;
+export const ShapeNames = ['Cat', 'Square', 'Circle', 'Triangle'];
 
 export type Cell = {
-  shape: Shape;
-  locked: boolean; // Whether the cell can be changed by the player
-  allowedShapes?: Set<Exclude<Shape, 'cat'>>; // For cells in superposition, what shapes they can collapse into
+  shape: ShapeId;
+  locked: boolean;
 };
 
-export type Grid = Cell[][];
+export type GameBoard = Cell[][];
 
-export type Constraint = {
+export type ConstraintDefinition = {
   type: 'row' | 'column' | 'global';
-  index?: number; // Row or column index, not used for global constraints
+  index?: number;
   rule: {
-    shape?: Shape;
+    shape?: ShapeId;
     count: number;
     operator: 'exactly' | 'at_least' | 'at_most' | 'none';
   };
@@ -28,8 +33,18 @@ export type PuzzleConfig = {
   requiredSuperpositions?: number; // Number of cells that must remain in superposition
 };
 
-export type Puzzle = {
-  grid: Grid;
-  constraints: Constraint[];
-  config: PuzzleConfig;
+export type PuzzleDefinition = {
+  initialBoard: GameBoard;
+  constraints: ConstraintDefinition[];
 }; 
+
+export type PuzzleMove = {
+  x: number;
+  y: number;
+  shape: ShapeId;
+};
+
+export type PuzzleSnapshot = {
+  board: GameBoard;
+  moves: PuzzleMove[];
+}

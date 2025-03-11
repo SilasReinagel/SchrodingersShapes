@@ -1,17 +1,38 @@
 import { motion } from 'framer-motion';
-import { Constraint } from '../../game/types';
+import { ConstraintDefinition, GameBoard, ShapeNames } from '../../game/types';
+import { getConstraintStatus } from '../../game/utils';
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 interface ConstraintsPanelProps {
-  constraints: Constraint[];
+  constraints: ConstraintDefinition[];
+  grid: GameBoard;
 }
 
-export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints }) => {
-  const formatConstraint = (constraint: Constraint): string => {
+/**
+ * Converts a string to title case (first letter of each word capitalized)
+ * @param str The string to convert
+ * @returns The string in title case
+ */
+const toTitleCase = (str: string): string => {
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+
+export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints, grid }) => {
+  const constraintStatuses = getConstraintStatus(grid, constraints);
+
+  const formatConstraint = (constraint: ConstraintDefinition): string => {
     const { type, rule } = constraint;
     const location = type === 'global' 
-      ? 'In total' 
-      : `In ${type} ${(constraint.index ?? 0) + 1}`;
-    const shape = rule.shape ? rule.shape : 'shapes';
+      ? 'Total' 
+      : `${toTitleCase(type)} ${(constraint.index ?? 0) + 1}`;
+    
+    const shape = rule.shape !== undefined 
+      ? ShapeNames[rule.shape] 
+      : 'shapes';
     
     switch (rule.operator) {
       case 'exactly':
@@ -47,9 +68,16 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints 
               duration: 0.3,
               delay: index * 0.1
             }}
-            className="inner-panel text-base md:text-lg"
+            className={`inner-panel text-base md:text-lg flex items-center justify-between ${
+              constraintStatuses[index] ? 'text-green-600' : 'text-red-600'
+            }`}
           >
-            {formatConstraint(constraint)}
+            <span>{formatConstraint(constraint)}</span>
+            {constraintStatuses[index] ? (
+              <CheckCircleIcon className="h-6 w-6 text-green-500" />
+            ) : (
+              <XCircleIcon className="h-6 w-6 text-red-500" />
+            )}
           </motion.div>
         ))}
       </div>

@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { Shape as ShapeType } from '../../game/types';
+import { ShapeId, CatShape, SquareShape, CircleShape, TriangleShape } from '../../game/types';
 
 interface ShapeProps {
-  type: ShapeType;
+  type: ShapeId;
   className?: string;
   isLocked?: boolean;
 }
@@ -13,17 +13,16 @@ type ShapeStyle = {
 };
 
 export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = false }) => {
-  if (type === 'cat') {
+  if (type === CatShape) {
     return (
       <motion.div
         className={`cat ${className} ${isLocked ? 'opacity-50' : ''}`}
-        initial={{ opacity: 0.5, scale: 0.9 }}
+        initial={{ rotate: 0 }}
         animate={{ 
-          opacity: [0.5, 0.8, 0.5],
-          scale: [0.9, 1, 0.9]
+          rotate: [-5, 5, -5]
         }}
         transition={{ 
-          duration: 2,
+          duration: 2.5,
           repeat: Infinity,
           ease: "easeInOut"
         }}
@@ -37,16 +36,16 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
     );
   }
 
-  const shapeStyles: Record<Exclude<ShapeType, 'cat'>, ShapeStyle> = {
-    square: {
+  const shapeStyles: Record<number, ShapeStyle> = {
+    [SquareShape]: {
       image: '/art/square_01.png',
       className: 'w-4/5 h-4/5'
     },
-    circle: {
+    [CircleShape]: {
       image: '/art/circle_01.png',
       className: 'w-4/5 h-4/5'
     },
-    triangle: {
+    [TriangleShape]: {
       image: '/art/triangle_01.png',
       className: 'w-4/5 h-4/5'
     }
@@ -67,7 +66,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
     >
       <img 
         src={image} 
-        alt={type} 
+        alt={String(type)} 
         className="w-full h-full object-contain p-1"
       />
     </motion.div>

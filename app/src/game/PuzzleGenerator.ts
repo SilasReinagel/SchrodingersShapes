@@ -1,7 +1,7 @@
-import { Shape, Grid, Constraint, PuzzleConfig, Puzzle, Difficulty } from './types';
+import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, Difficulty, CatShape, SquareShape, CircleShape, TriangleShape } from './types';
 
 export class PuzzleGenerator {
-  private static readonly SHAPES: Exclude<Shape, 'cat'>[] = ['square', 'circle', 'triangle'];
+  private static readonly SHAPES: ShapeId[] = [SquareShape, CircleShape, TriangleShape];
   
   private static readonly DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     easy: {
@@ -27,39 +27,28 @@ export class PuzzleGenerator {
     }
   };
 
-  /**
-   * Generate a new puzzle based on the provided configuration
-   */
-  public static generate(config: Partial<PuzzleConfig> = {}): Puzzle {
+  public static generate(config: Partial<PuzzleConfig> = {}): PuzzleDefinition {
     const fullConfig = this.getFullConfig(config);
-    const grid = this.initializeGrid(fullConfig.size);
+    const initialBoard = this.initializeGrid(fullConfig.size);
     const constraints = this.generateConstraints(fullConfig);
     
     return {
-      grid,
-      constraints,
-      config: fullConfig
+      initialBoard,
+      constraints
     };
   }
 
-  /**
-   * Initialize an empty grid with all cells in superposition
-   */
-  private static initializeGrid(size: number): Grid {
+  private static initializeGrid(size: number): GameBoard {
     return Array(size).fill(null).map(() =>
       Array(size).fill(null).map(() => ({
-        shape: 'cat',
-        locked: false,
-        allowedShapes: new Set(this.SHAPES)
+        shape: CatShape,
+        locked: false
       }))
     );
   }
 
-  /**
-   * Generate constraints based on the configuration
-   */
-  private static generateConstraints(config: Required<PuzzleConfig>): Constraint[] {
-    const constraints: Constraint[] = [];
+  private static generateConstraints(config: Required<PuzzleConfig>): ConstraintDefinition[] {
+    const constraints: ConstraintDefinition[] = [];
     const numConstraints = Math.floor(
       Math.random() * (config.maxConstraints - config.minConstraints + 1) + config.minConstraints
     );
@@ -68,7 +57,7 @@ export class PuzzleGenerator {
     constraints.push({
       type: 'global',
       rule: {
-        shape: 'cat',
+        shape: CatShape,
         count: config.requiredSuperpositions,
         operator: 'exactly'
       }
@@ -88,7 +77,7 @@ export class PuzzleGenerator {
   /**
    * Generate a random constraint
    */
-  private static generateRandomConstraint(size: number): Constraint {
+  private static generateRandomConstraint(size: number): ConstraintDefinition {
     const type = Math.random() < 0.5 ? 'row' : 'column';
     const index = Math.floor(Math.random() * size);
     const shape = Math.random() < 0.75 ? this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)] : undefined;
@@ -125,7 +114,7 @@ export class PuzzleGenerator {
   /**
    * Check if a constraint is valid and doesn't conflict with existing constraints
    */
-  private static isValidConstraint(newConstraint: Constraint, existingConstraints: Constraint[]): boolean {
+  private static isValidConstraint(newConstraint: ConstraintDefinition, existingConstraints: ConstraintDefinition[]): boolean {
     // Don't allow duplicate constraints on the same row/column
     return !existingConstraints.some(constraint =>
       constraint.type === newConstraint.type &&
@@ -137,8 +126,8 @@ export class PuzzleGenerator {
   /**
    * Get a random constraint operator
    */
-  private static getRandomOperator(): Constraint['rule']['operator'] {
-    const operators: Constraint['rule']['operator'][] = ['exactly', 'at_least', 'at_most', 'none'];
+  private static getRandomOperator(): ConstraintDefinition['rule']['operator'] {
+    const operators: ConstraintDefinition['rule']['operator'][] = ['exactly', 'at_least', 'at_most', 'none'];
     return operators[Math.floor(Math.random() * operators.length)];
   }
 

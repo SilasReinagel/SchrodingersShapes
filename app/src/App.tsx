@@ -1,61 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { PuzzleGenerator } from './game/PuzzleGenerator';
 import { Grid } from './components/grid/Grid';
 import { ConstraintsPanel } from './components/constraints/ConstraintsPanel';
-import type { Puzzle, Shape } from './game/types';
+import { VictoryModal } from './components/VictoryModal';
+import type { ShapeId } from './game/types';
 import { Timer } from './components/Timer';
+import { CurrentPuzzle } from './game/CurrentPuzzle';
+import { CatShape } from './game/types';
 
 const App = () => {
-  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [puzzle, setPuzzle] = useState<CurrentPuzzle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [moves, setMoves] = useState<Puzzle[]>([]);
+  const [showVictory, setShowVictory] = useState(false);
+  const timerRef = useRef<{ getTime: () => string } | null>(null);
 
   useEffect(() => {
-    const initialPuzzle = PuzzleGenerator.generate({ difficulty: 'medium' });
+    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: 'medium' });
+    const initialPuzzle = new CurrentPuzzle(initialPuzzleDef);
     setPuzzle(initialPuzzle);
-    setMoves([initialPuzzle]);
   }, []);
 
-  const handleCellClick = (row: number, col: number): void => {
-    if (!puzzle) return;
+  const handleCellClick = useCallback((row: number, col: number): void => {
+    if (!puzzle || showVictory) return;
     
     if (!isPlaying) {
       setIsPlaying(true);
     }
 
-    const cell = puzzle.grid[row][col];
-    if (cell.shape === 'cat' && !cell.locked) {
-      // Cell click will be handled by the ShapePicker
+    if (!puzzle.canMove(col, row)) {
+      console.log(`Cannot move at position (${col}, ${row}): cell is locked or out of bounds`);
       return;
     }
-  };
-
-  const handleShapeSelect = (row: number, col: number, shape: Shape) => {
-    if (!puzzle) return;
-
-    const newPuzzle = {
-      ...puzzle,
-      grid: puzzle.grid.map((r, i) =>
-        r.map((cell, j) =>
-          i === row && j === col
-            ? { ...cell, shape }
-            : cell
-        )
-      )
-    };
-
-    setPuzzle(newPuzzle);
-    setMoves(prev => [...prev, newPuzzle]);
-  };
-
-  const handleUndo = () => {
-    if (moves.length <= 1) return;
     
-    const newMoves = moves.slice(0, -1);
-    setPuzzle(newMoves[newMoves.length - 1]);
-    setMoves(newMoves);
-  };
+    const cell = puzzle.currentBoard[row][col];
+    if (cell.shape === CatShape) {
+      // Cell click will be handled by the ShapePicker
+      console.log(`Cell at (${col}, ${row}) contains a Cat shape, will be handled by ShapePicker`);
+      return;
+    }
+
+    const moveSuccessful = puzzle.makeMove(col, row, cell.shape);
+    
+    if (moveSuccessful) {
+      setPuzzle(puzzle);
+      // Check for victory
+      if (puzzle.isPuzzleSolved()) {
+        setIsPlaying(false);
+        setShowVictory(true);
+      }
+    } else {
+      console.log(`Move at (${col}, ${row}) failed to complete`);
+    }
+  }, [puzzle, showVictory, isPlaying]);
+
+  const handleShapeSelect = useCallback((row: number, col: number, shape: ShapeId) => {
+    if (!puzzle || showVictory) return;
+
+    const moveSuccessful = puzzle.makeMove(col, row, shape);
+    
+    if (moveSuccessful) {
+      setPuzzle(puzzle);
+      // Check for victory
+      if (puzzle.isPuzzleSolved()) {
+        setIsPlaying(false);
+        setShowVictory(true);
+      }
+    }
+  }, [puzzle, showVictory, setIsPlaying, setShowVictory]);
+
+  const handleUndo = useCallback(() => {
+    if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
+    
+    puzzle.undoMove();
+    setPuzzle(puzzle);
+  }, [puzzle, showVictory]);
+
+  const handleNextPuzzle = useCallback(() => {
+    const newPuzzleDef = PuzzleGenerator.generate({ difficulty: 'medium' });
+    const newPuzzle = new CurrentPuzzle(newPuzzleDef);
+    setPuzzle(newPuzzle);
+    setShowVictory(false);
+    setIsPlaying(false);
+  }, []);
+
+  const handleCloseVictory = useCallback(() => {
+    setShowVictory(false);
+  }, []);
 
   if (!puzzle) return null;
 
@@ -78,7 +109,10 @@ const App = () => {
           </span>
         </h1>
         <div className="flex items-center space-x-4">
-          <Timer isPlaying={isPlaying} />
+          <Timer 
+            isPlaying={isPlaying} 
+            ref={timerRef}
+          />
           <button className="nav-button">
             Share
           </button>
@@ -92,7 +126,7 @@ const App = () => {
           <div className="w-full lg:w-auto">
             <div className="max-h-[min(65vh,65vw)] aspect-square">
               <Grid 
-                grid={puzzle.grid}
+                grid={puzzle.currentBoard}
                 onCellClick={handleCellClick}
                 onShapeSelect={handleShapeSelect}
               />
@@ -101,7 +135,10 @@ const App = () => {
 
           {/* Constraints Panel */}
           <div className="w-full lg:w-auto max-h-[65vh] overflow-y-auto">
-            <ConstraintsPanel constraints={puzzle.constraints} />
+            <ConstraintsPanel 
+              constraints={puzzle.constraints} 
+              grid={puzzle.currentBoard}
+            />
           </div>
         </div>
       </main>
@@ -115,14 +152,23 @@ const App = () => {
         <button 
           className="nav-button"
           onClick={handleUndo}
-          disabled={moves.length <= 1}
+          disabled={!puzzle.getCanUndo() || showVictory}
         >
           Undo
         </button>
         <div className="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
-          Moves: {moves.length - 1}
+          Moves: {puzzle.getMoveCount()}
         </div>
       </motion.footer>
+
+      {/* Victory Modal */}
+      <VictoryModal
+        isOpen={showVictory}
+        onClose={handleCloseVictory}
+        moves={puzzle.getMoveCount()}
+        time={timerRef.current?.getTime() || '0:00'}
+        onNextPuzzle={handleNextPuzzle}
+      />
     </div>
   );
 };

@@ -1,18 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { PuzzleGenerator } from '../PuzzleGenerator';
+import { PuzzleGenerator } from './PuzzleGenerator';
+import { CatShape, SquareShape, CircleShape, TriangleShape } from './types';
 
 describe('PuzzleGenerator', () => {
   it('should generate a puzzle with default settings', () => {
     const puzzle = PuzzleGenerator.generate();
     
     expect(puzzle).toBeDefined();
-    expect(puzzle.grid).toBeDefined();
+    expect(puzzle.initialBoard).toBeDefined();
     expect(puzzle.constraints).toBeDefined();
-    expect(puzzle.config).toBeDefined();
     
     // Default difficulty is medium, which means 3x3 grid
-    expect(puzzle.grid.length).toBe(3);
-    expect(puzzle.grid[0].length).toBe(3);
+    expect(puzzle.initialBoard.length).toBe(3);
+    expect(puzzle.initialBoard[0].length).toBe(3);
     
     // Should have between 3 and 5 constraints for medium difficulty
     expect(puzzle.constraints.length).toBeGreaterThanOrEqual(3);
@@ -22,8 +22,8 @@ describe('PuzzleGenerator', () => {
   it('should generate an easy puzzle correctly', () => {
     const puzzle = PuzzleGenerator.generate({ difficulty: 'easy' });
     
-    expect(puzzle.grid.length).toBe(2);
-    expect(puzzle.grid[0].length).toBe(2);
+    expect(puzzle.initialBoard.length).toBe(2);
+    expect(puzzle.initialBoard[0].length).toBe(2);
     expect(puzzle.constraints.length).toBeGreaterThanOrEqual(2);
     expect(puzzle.constraints.length).toBeLessThanOrEqual(3);
   });
@@ -31,20 +31,19 @@ describe('PuzzleGenerator', () => {
   it('should generate a hard puzzle correctly', () => {
     const puzzle = PuzzleGenerator.generate({ difficulty: 'hard' });
     
-    expect(puzzle.grid.length).toBe(4);
-    expect(puzzle.grid[0].length).toBe(4);
+    expect(puzzle.initialBoard.length).toBe(4);
+    expect(puzzle.initialBoard[0].length).toBe(4);
     expect(puzzle.constraints.length).toBeGreaterThanOrEqual(4);
     expect(puzzle.constraints.length).toBeLessThanOrEqual(7);
   });
 
-  it('should initialize all cells in cat', () => {
+  it('should initialize all cells in cat state', () => {
     const puzzle = PuzzleGenerator.generate();
     
-    puzzle.grid.forEach(row => {
+    puzzle.initialBoard.forEach(row => {
       row.forEach(cell => {
-        expect(cell.shape).toBe('cat');
+        expect(cell.shape).toBe(CatShape);
         expect(cell.locked).toBe(false);
-        expect(cell.allowedShapes?.size).toBe(3); // square, circle, triangle
       });
     });
   });
@@ -53,7 +52,7 @@ describe('PuzzleGenerator', () => {
     const puzzle = PuzzleGenerator.generate();
     
     const superpositionConstraint = puzzle.constraints.find(
-      c => c.type === 'global' && c.rule.shape === 'cat'
+      c => c.type === 'global' && c.rule.shape === CatShape
     );
     
     expect(superpositionConstraint).toBeDefined();
@@ -64,8 +63,8 @@ describe('PuzzleGenerator', () => {
     const customSize = 5;
     const puzzle = PuzzleGenerator.generate({ size: customSize, difficulty: 'medium' });
     
-    expect(puzzle.grid.length).toBe(customSize);
-    expect(puzzle.grid[0].length).toBe(customSize);
+    expect(puzzle.initialBoard.length).toBe(customSize);
+    expect(puzzle.initialBoard[0].length).toBe(customSize);
   });
 
   it('should not generate duplicate constraints for the same row/column/shape', () => {
