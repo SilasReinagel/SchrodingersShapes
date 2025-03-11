@@ -36,26 +36,31 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
     );
   }
 
-  const shapeStyles: Record<number, ShapeStyle> = {
-    [SquareShape]: {
+  // Map numeric shape IDs to their styles
+  const shapeStyles = new Map<ShapeId, ShapeStyle>([
+    [SquareShape, {
       image: '/art/square_01.png',
       className: 'w-4/5 h-4/5'
-    },
-    [CircleShape]: {
+    }],
+    [CircleShape, {
       image: '/art/circle_01.png',
       className: 'w-4/5 h-4/5'
-    },
-    [TriangleShape]: {
+    }],
+    [TriangleShape, {
       image: '/art/triangle_01.png',
       className: 'w-4/5 h-4/5'
-    }
-  };
+    }]
+  ]);
 
-  const { image, className: shapeClassName } = shapeStyles[type];
+  const style = shapeStyles.get(type);
+  if (!style) {
+    console.error(`No style found for shape type: ${type}`);
+    return null;
+  }
 
   return (
     <motion.div
-      className={`shape ${shapeClassName} ${className} ${isLocked ? 'opacity-50' : ''}`}
+      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''}`}
       initial={{ scale: 0.8, opacity: isLocked ? 0.5 : 0 }}
       animate={{ scale: 1, opacity: isLocked ? 0.5 : 1 }}
       transition={{ 
@@ -65,7 +70,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
       }}
     >
       <img 
-        src={image} 
+        src={style.image} 
         alt={String(type)} 
         className="w-full h-full object-contain p-1"
       />

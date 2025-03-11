@@ -29,28 +29,24 @@ const App = () => {
     }
 
     if (!puzzle.canMove(col, row)) {
-      console.log(`Cannot move at position (${col}, ${row}): cell is locked or out of bounds`);
       return;
     }
     
+    // Let the Grid component handle the ShapePicker for cat cells
     const cell = puzzle.currentBoard[row][col];
     if (cell.shape === CatShape) {
-      // Cell click will be handled by the ShapePicker
-      console.log(`Cell at (${col}, ${row}) contains a Cat shape, will be handled by ShapePicker`);
       return;
     }
 
+    // For non-cat cells, try to make the move
     const moveSuccessful = puzzle.makeMove(col, row, cell.shape);
-    
     if (moveSuccessful) {
-      setPuzzle(puzzle);
-      // Check for victory
+      setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
+      
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
         setShowVictory(true);
       }
-    } else {
-      console.log(`Move at (${col}, ${row}) failed to complete`);
     }
   }, [puzzle, showVictory, isPlaying]);
 
@@ -58,22 +54,21 @@ const App = () => {
     if (!puzzle || showVictory) return;
 
     const moveSuccessful = puzzle.makeMove(col, row, shape);
-    
     if (moveSuccessful) {
-      setPuzzle(puzzle);
-      // Check for victory
+      setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
+      
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
         setShowVictory(true);
       }
     }
-  }, [puzzle, showVictory, setIsPlaying, setShowVictory]);
+  }, [puzzle, showVictory]);
 
   const handleUndo = useCallback(() => {
     if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
     
     puzzle.undoMove();
-    setPuzzle(puzzle);
+    setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
   }, [puzzle, showVictory]);
 
   const handleNextPuzzle = useCallback(() => {
@@ -126,7 +121,7 @@ const App = () => {
           <div className="w-full lg:w-auto">
             <div className="max-h-[min(65vh,65vw)] aspect-square">
               <Grid 
-                grid={puzzle.currentBoard}
+                puzzle={puzzle}
                 onCellClick={handleCellClick}
                 onShapeSelect={handleShapeSelect}
               />

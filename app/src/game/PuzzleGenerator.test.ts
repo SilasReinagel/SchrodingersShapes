@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PuzzleGenerator } from './PuzzleGenerator';
-import { CatShape, SquareShape, CircleShape, TriangleShape } from './types';
+import { CatShape } from './types';
 
 describe('PuzzleGenerator', () => {
   it('should generate a puzzle with default settings', () => {

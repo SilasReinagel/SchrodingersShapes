@@ -20,6 +20,29 @@ const toTitleCase = (str: string): string => {
     .join(' ');
 };
 
+/**
+ * Pluralizes a word based on count
+ * @param word The word to pluralize
+ * @param count The count to check against
+ * @returns The word, pluralized if needed
+ */
+const pluralize = (word: string, count: number): string => {
+  if (count === 1) {
+    return word;
+  }
+  
+  // Handle special cases
+  if (word.endsWith('y')) {
+    return word.slice(0, -1) + 'ies';
+  }
+  
+  if (word.endsWith('s') || word.endsWith('x') || word.endsWith('z') || 
+      word.endsWith('ch') || word.endsWith('sh')) {
+    return word + 'es';
+  }
+  
+  return word + 's';
+};
 
 export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints, grid }) => {
   const constraintStatuses = getConstraintStatus(grid, constraints);
@@ -27,7 +50,7 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints,
   const formatConstraint = (constraint: ConstraintDefinition): string => {
     const { type, rule } = constraint;
     const location = type === 'global' 
-      ? 'Total' 
+      ? 'Whole Board' 
       : `${toTitleCase(type)} ${(constraint.index ?? 0) + 1}`;
     
     const shape = rule.shape !== undefined 
@@ -36,13 +59,13 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints,
     
     switch (rule.operator) {
       case 'exactly':
-        return `${location}: Exactly ${rule.count} ${shape}`;
+        return `${location}: Exactly ${rule.count} ${pluralize(shape, rule.count)}`;
       case 'at_least':
-        return `${location}: At least ${rule.count} ${shape}`;
+        return `${location}: At least ${rule.count} ${pluralize(shape, rule.count)}`;
       case 'at_most':
-        return `${location}: At most ${rule.count} ${shape}`;
+        return `${location}: At most ${rule.count} ${pluralize(shape, rule.count)}`;
       case 'none':
-        return `${location}: No ${shape}`;
+        return `${location}: No ${pluralize(shape, 2)}`;
       default:
         return '';
     }
@@ -50,7 +73,7 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints,
 
   return (
     <motion.div
-      className="floating-panel w-full lg:w-[300px]"
+      className="floating-panel w-full lg:w-[400px]"
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.2 }}

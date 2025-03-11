@@ -1,4 +1,4 @@
-import { PuzzleDefinition, GameBoard, PuzzleMove, PuzzleSnapshot, ShapeId, Cell } from './types';
+import { PuzzleDefinition, GameBoard, PuzzleMove, PuzzleSnapshot, ShapeId, } from './types';
 import { getConstraintStatus } from './utils';
 
 export class CurrentPuzzle {

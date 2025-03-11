@@ -1,14 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shape as ShapeType } from '../../game/types';
+import { ShapeId } from '../../game/types';
 import { Shape } from './Shape';
 
 interface ShapePickerProps {
   position: { x: number; y: number };
-  onSelect: (shape: Exclude<ShapeType, 'cat'>) => void;
+  onSelect: (shape: Exclude<ShapeId, 0>) => void;
   onClose: () => void;
 }
 
-const shapes: Exclude<ShapeType, 'cat'>[] = ['square', 'circle', 'triangle'];
+const shapes: Exclude<ShapeId, 0>[] = [1, 2, 3];
 
 export const ShapePicker: React.FC<ShapePickerProps> = ({ position, onSelect, onClose }) => {
   return (

@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
 import { useState, useRef } from 'react';
-import { Grid as GridType, Shape as ShapeType } from '../../game/types';
+import { ShapeId, CatShape } from '../../game/types';
+import { CurrentPuzzle } from '../../game/CurrentPuzzle';
 import { Shape } from '../shapes/Shape';
 import { ShapePicker } from '../shapes/ShapePicker';
 
 interface GridProps {
-  grid: GridType;
+  puzzle: CurrentPuzzle;
   onCellClick: (row: number, col: number) => void;
-  onShapeSelect: (row: number, col: number, shape: ShapeType) => void;
+  onShapeSelect: (row: number, col: number, shape: ShapeId) => void;
 }
 
 interface PickerState {
@@ -17,7 +18,7 @@ interface PickerState {
   col: number;
 }
 
-export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) => {
+export const Grid: React.FC<GridProps> = ({ puzzle, onCellClick, onShapeSelect }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [picker, setPicker] = useState<PickerState>({
     isOpen: false,
@@ -27,8 +28,8 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   });
 
   const handleCellClick = (row: number, col: number, event: React.MouseEvent) => {
-    const cell = grid[row][col];
-    if (cell.shape === 'cat' && !cell.locked) {
+    const cell = puzzle.currentBoard[row][col];
+    if (cell.shape === CatShape && !cell.locked) {
       const cellElement = event.currentTarget as HTMLElement;
       const rect = cellElement.getBoundingClientRect();
       const gridRect = gridRef.current?.getBoundingClientRect() || rect;
@@ -63,16 +64,16 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
       <div 
         className="grid h-full gap-2 md:gap-3 p-3 md:p-4" 
         style={{ 
-          gridTemplateColumns: `repeat(${grid.length}, minmax(0, 1fr))`
+          gridTemplateColumns: `repeat(${puzzle.currentBoard.length}, minmax(0, 1fr))`
         }}
       >
-        {grid.map((row, rowIndex) => (
+        {puzzle.currentBoard.map((row, rowIndex) => (
           row.map((cell, colIndex) => (
             <motion.div
               key={`${rowIndex}-${colIndex}`}
-              className={`grid-cell p-2 md:p-3 ${cell.shape === 'cat' && !cell.locked ? 'cursor-pointer' : ''}`}
-              whileHover={cell.shape === 'cat' && !cell.locked ? { scale: 1.02 } : undefined}
-              whileTap={cell.shape === 'cat' && !cell.locked ? { scale: 0.98 } : undefined}
+              className={`grid-cell p-2 md:p-3 ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
+              whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
+              whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
               onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
             >
               <Shape type={cell.shape} isLocked={cell.locked} />
