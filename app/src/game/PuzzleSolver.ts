@@ -9,6 +9,12 @@ export class PuzzleSolver {
   private correctSolutions: number = 0;
   private deadEnds: number = 0;
   private isSolvable: boolean = false;
+  private stateCache: Map<string, {
+    fewestMoves: number;
+    correctSolutions: number;
+    deadEnds: number;
+    isSolvable: boolean;
+  }> = new Map();
   
   constructor(puzzleDef: PuzzleDefinition) {
     this.puzzle = new CurrentPuzzle(puzzleDef);
@@ -28,6 +34,7 @@ export class PuzzleSolver {
     this.correctSolutions = 0;
     this.deadEnds = 0;
     this.isSolvable = false;
+    this.stateCache.clear();
     
     // Start the recursive solving process
     this.solveRecursive(0, 0, 0);
@@ -41,17 +48,53 @@ export class PuzzleSolver {
   }
   
   /**
+   * Generate a unique string key for the current board state
+   */
+  private getBoardStateKey(): string {
+    return JSON.stringify(this.puzzle.currentBoard);
+  }
+  
+  /**
    * Recursive function to try all possible moves
    * @param x Current x coordinate
    * @param y Current y coordinate
    * @param moveCount Current move count
+   * @returns Object containing solution statistics for this branch
    */
-  private solveRecursive(x: number, y: number, moveCount: number): void {
+  private solveRecursive(x: number, y: number, moveCount: number): {
+    fewestMoves: number;
+    correctSolutions: number;
+    deadEnds: number;
+    isSolvable: boolean;
+  } {
     const size = this.puzzle.currentBoard.length;
     
     // If we've already found a solution with fewer moves, prune this branch
     if (moveCount >= this.fewestMoves) {
-      return;
+      return {
+        fewestMoves: Infinity,
+        correctSolutions: 0,
+        deadEnds: 0,
+        isSolvable: false
+      };
+    }
+    
+    // Check if we've seen this board state before
+    const stateKey = this.getBoardStateKey();
+    if (this.stateCache.has(stateKey)) {
+      const cachedResult = this.stateCache.get(stateKey)!;
+      
+      // Update global statistics based on cached result
+      if (cachedResult.isSolvable) {
+        this.isSolvable = true;
+        this.correctSolutions += cachedResult.correctSolutions;
+        if (moveCount + cachedResult.fewestMoves < this.fewestMoves) {
+          this.fewestMoves = moveCount + cachedResult.fewestMoves;
+        }
+      }
+      this.deadEnds += cachedResult.deadEnds;
+      
+      return cachedResult;
     }
     
     // Check if the puzzle is solved
@@ -59,7 +102,15 @@ export class PuzzleSolver {
       this.isSolvable = true;
       this.correctSolutions++;
       this.fewestMoves = moveCount;
-      return;
+      
+      const result = {
+        fewestMoves: 0, // 0 additional moves needed
+        correctSolutions: 1,
+        deadEnds: 0,
+        isSolvable: true
+      };
+      this.stateCache.set(stateKey, result);
+      return result;
     }
     
     // Find the next cell to try
@@ -76,32 +127,71 @@ export class PuzzleSolver {
     // If we've gone through all cells and haven't found a solution, it's a dead end
     if (nextY >= size) {
       this.deadEnds++;
-      return;
+      
+      const result = {
+        fewestMoves: Infinity,
+        correctSolutions: 0,
+        deadEnds: 1,
+        isSolvable: false
+      };
+      this.stateCache.set(stateKey, result);
+      return result;
     }
     
     // If the current cell is locked, skip to the next cell
     if (!this.puzzle.canMove(x, y)) {
-      this.solveRecursive(nextX, nextY, moveCount);
-      return;
+      const result = this.solveRecursive(nextX, nextY, moveCount);
+      this.stateCache.set(stateKey, result);
+      return result;
     }
+    
+    // Aggregate results from all possible moves
+    let branchFewestMoves = Infinity;
+    let branchCorrectSolutions = 0;
+    let branchDeadEnds = 0;
+    let branchIsSolvable = false;
     
     // Try each possible shape in the current cell
     for (const shape of PuzzleSolver.SHAPES) {
       // Skip if the shape is already in this cell
       if (this.puzzle.currentBoard[y][x].shape === shape) {
-        this.solveRecursive(nextX, nextY, moveCount);
-        return;
+        const result = this.solveRecursive(nextX, nextY, moveCount);
+        this.stateCache.set(stateKey, result);
+        return result;
       }
       
       // Make the move
       this.puzzle.makeMove(x, y, shape);
       
       // Recursively try the next cell
-      this.solveRecursive(nextX, nextY, moveCount + 1);
+      const result = this.solveRecursive(nextX, nextY, moveCount + 1);
+      
+      // Update branch statistics
+      if (result.isSolvable) {
+        branchIsSolvable = true;
+        branchCorrectSolutions += result.correctSolutions;
+        if (result.fewestMoves + 1 < branchFewestMoves) {
+          branchFewestMoves = result.fewestMoves + 1;
+        }
+      }
+      branchDeadEnds += result.deadEnds;
       
       // Undo the move to backtrack
       this.puzzle.undoMove();
     }
+    
+    // Create result for this state
+    const result = {
+      fewestMoves: branchIsSolvable ? branchFewestMoves : Infinity,
+      correctSolutions: branchCorrectSolutions,
+      deadEnds: branchDeadEnds,
+      isSolvable: branchIsSolvable
+    };
+    
+    // Cache the result
+    this.stateCache.set(stateKey, result);
+    
+    return result;
   }
   
   /**

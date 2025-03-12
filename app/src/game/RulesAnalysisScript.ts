@@ -119,12 +119,11 @@ function printStats(difficulty: Difficulty, stats: DifficultyStats): void {
 /**
  * Main function to run the analysis
  */
-function runAnalysis() {
+function runAnalysis(count: number = 1000) {
   console.log('Starting puzzle analysis...');
   const startTime = Date.now();
   
   const difficulties: Difficulty[] = ['easy', 'medium', 'hard'];
-  const count = 1000;
   
   const results: Record<Difficulty, DifficultyStats> = {} as Record<Difficulty, DifficultyStats>;
   

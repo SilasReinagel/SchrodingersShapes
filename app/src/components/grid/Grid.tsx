@@ -1,12 +1,11 @@
 import { motion } from 'framer-motion';
 import { useState, useRef } from 'react';
-import { ShapeId, CatShape } from '../../game/types';
-import { CurrentPuzzle } from '../../game/CurrentPuzzle';
+import { GameBoard, ShapeId } from '../../game/types';
 import { Shape } from '../shapes/Shape';
 import { ShapePicker } from '../shapes/ShapePicker';
 
 interface GridProps {
-  puzzle: CurrentPuzzle;
+  grid: GameBoard;
   onCellClick: (row: number, col: number) => void;
   onShapeSelect: (row: number, col: number, shape: ShapeId) => void;
 }
@@ -18,7 +17,7 @@ interface PickerState {
   col: number;
 }
 
-export const Grid: React.FC<GridProps> = ({ puzzle, onCellClick, onShapeSelect }) => {
+export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [picker, setPicker] = useState<PickerState>({
     isOpen: false,
@@ -28,14 +27,14 @@ export const Grid: React.FC<GridProps> = ({ puzzle, onCellClick, onShapeSelect }
   });
 
   const handleCellClick = (row: number, col: number, event: React.MouseEvent) => {
-    const cell = puzzle.currentBoard[row][col];
-    if (cell.shape === CatShape && !cell.locked) {
+    const cell = grid[row][col];
+    if (cell.shape === 0 && !cell.locked) { // 0 is CatShape
       const cellElement = event.currentTarget as HTMLElement;
       const rect = cellElement.getBoundingClientRect();
       const gridRect = gridRef.current?.getBoundingClientRect() || rect;
       
       // Get picker dimensions (assuming our standard sizes from ShapePicker)
-      const PICKER_WIDTH = 3 * 56 +36; // 3 buttons (w-14=56px) + gaps and padding
+      const PICKER_WIDTH = 3 * 56 + 36; // 3 buttons (w-14=56px) + gaps and padding
       const PICKER_HEIGHT = 56 + 24; // 1 button height + padding
       const GAP = 12; // Space between cell and picker
       
@@ -64,16 +63,16 @@ export const Grid: React.FC<GridProps> = ({ puzzle, onCellClick, onShapeSelect }
       <div 
         className="grid h-full gap-2 md:gap-3 p-3 md:p-4" 
         style={{ 
-          gridTemplateColumns: `repeat(${puzzle.currentBoard.length}, minmax(0, 1fr))`
+          gridTemplateColumns: `repeat(${grid.length}, minmax(0, 1fr))`
         }}
       >
-        {puzzle.currentBoard.map((row, rowIndex) => (
+        {grid.map((row, rowIndex) => (
           row.map((cell, colIndex) => (
             <motion.div
               key={`${rowIndex}-${colIndex}`}
-              className={`grid-cell p-2 md:p-3 ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
-              whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
-              whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
+              className={`grid-cell p-2 md:p-3 ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
+              whileHover={cell.shape === 0 && !cell.locked ? { scale: 1.02 } : undefined}
+              whileTap={cell.shape === 0 && !cell.locked ? { scale: 0.98 } : undefined}
               onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
             >
               <Shape type={cell.shape} isLocked={cell.locked} />
