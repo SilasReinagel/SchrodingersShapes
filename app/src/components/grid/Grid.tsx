@@ -55,6 +55,13 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   // Get grid dimensions
   const height = grid.length;
   const width = grid[0].length;
+  
+  // Calculate the appropriate cell size based on grid dimensions
+  // This helps ensure non-square grids display properly
+  const isWide = width > height;
+  const cellSizeClass = isWide 
+    ? "w-full h-auto" 
+    : "w-auto h-full";
 
   return (
     <motion.div
@@ -65,18 +72,20 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
       <div 
-        className="grid h-full gap-2 md:gap-3 p-3 md:p-4" 
+        className={`grid h-full w-full gap-1 sm:gap-2 md:gap-3 p-2 sm:p-3 md:p-4 mx-auto ${cellSizeClass}`}
         style={{ 
           gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
-          aspectRatio: width / height
+          aspectRatio: `${width} / ${height}`,
+          maxWidth: '100%',
+          maxHeight: '100%'
         }}
       >
         {grid.map((row, rowIndex) => (
           row.map((cell, colIndex) => (
             <motion.div
               key={`${rowIndex}-${colIndex}`}
-              className={`grid-cell p-2 md:p-3 ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
+              className={`grid-cell p-1 sm:p-2 md:p-3 ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
               whileHover={cell.shape === 0 && !cell.locked ? { scale: 1.02 } : undefined}
               whileTap={cell.shape === 0 && !cell.locked ? { scale: 0.98 } : undefined}
               onClick={(e) => handleCellClick(rowIndex, colIndex, e)}

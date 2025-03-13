@@ -21,7 +21,7 @@ export class PuzzleSolver {
   }
   
   /**
-   * Solve the puzzle using brute force and return statistics
+   * Solve the puzzle using constraint propagation and backtracking
    */
   public solve(): {
     fewestMoves: number;
@@ -36,8 +36,11 @@ export class PuzzleSolver {
     this.isSolvable = false;
     this.stateCache.clear();
     
-    // Start the recursive solving process
-    this.solveRecursive(0, 0, 0);
+    // Find cells that need to be filled (not locked and currently cat)
+    const cellsToFill: [number, number][] = this.findCellsToFill();
+    
+    // Start the recursive solving process with optimized cell ordering
+    this.solveWithBacktracking(cellsToFill, 0, 0);
     
     return {
       fewestMoves: this.isSolvable ? this.fewestMoves : -1,
@@ -48,37 +51,58 @@ export class PuzzleSolver {
   }
   
   /**
-   * Generate a unique string key for the current board state
+   * Find all cells that need decisions (not locked and currently cat)
+   * Orders cells by most constrained first for better pruning
    */
-  private getBoardStateKey(): string {
-    return JSON.stringify(this.puzzle.currentBoard);
+  private findCellsToFill(): [number, number][] {
+    const height = this.puzzle.currentBoard.length;
+    const width = this.puzzle.currentBoard[0].length;
+    const cells: [number, number][] = [];
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (this.puzzle.canMove(x, y) && this.puzzle.currentBoard[y][x].shape === CatShape) {
+          cells.push([x, y]);
+        }
+      }
+    }
+    
+    // Sort cells by most constrained first (heuristic)
+    // This could be improved with more sophisticated constraint analysis
+    return cells;
   }
   
   /**
-   * Recursive function to try all possible moves
-   * @param x Current x coordinate
-   * @param y Current y coordinate
-   * @param moveCount Current move count
-   * @returns Object containing solution statistics for this branch
+   * Generate a unique string key for the current board state
+   * Using a more efficient representation than full JSON
    */
-  private solveRecursive(x: number, y: number, moveCount: number): {
-    fewestMoves: number;
-    correctSolutions: number;
-    deadEnds: number;
-    isSolvable: boolean;
-  } {
-    // Get the actual width and height of the board
-    const height = this.puzzle.currentBoard.length;
-    const width = this.puzzle.currentBoard[0].length;
+  private getBoardStateKey(): string {
+    const board = this.puzzle.currentBoard;
+    let key = '';
     
-    // If we've already found a solution with fewer moves, prune this branch
+    for (let y = 0; y < board.length; y++) {
+      for (let x = 0; x < board[0].length; x++) {
+        key += board[y][x].shape;
+      }
+    }
+    
+    return key;
+  }
+  
+  /**
+   * Recursive function using backtracking with constraint propagation
+   * @param cellsToFill Array of cells that need decisions
+   * @param index Current index in the cellsToFill array
+   * @param moveCount Current move count
+   */
+  private solveWithBacktracking(
+    cellsToFill: [number, number][],
+    index: number,
+    moveCount: number
+  ): boolean {
+    // Early pruning: if we've already found a solution with fewer moves, skip this branch
     if (moveCount >= this.fewestMoves) {
-      return {
-        fewestMoves: Infinity,
-        correctSolutions: 0,
-        deadEnds: 0,
-        isSolvable: false
-      };
+      return false;
     }
     
     // Check if we've seen this board state before

@@ -145,11 +145,11 @@ export const Game = () => {
       </motion.nav>
 
       {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-4 relative z-10 flex items-center justify-center">
-        <div className="flex flex-col lg:flex-row items-start justify-center gap-6 max-h-[calc(100vh-140px)]">
+      <main className="flex-1 container mx-auto px-4 py-2 relative z-10 flex items-center justify-center overflow-hidden">
+        <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-6 w-full max-h-[calc(100vh-160px)]">
           {/* Puzzle Grid Container */}
-          <div className="w-full lg:w-auto">
-            <div className="max-h-[min(65vh,65vw)]">
+          <div className="w-full lg:w-auto flex-shrink-0 flex justify-center">
+            <div className="w-full max-w-md lg:max-w-lg h-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
               <Grid 
                 grid={puzzle.currentBoard}
                 onCellClick={handleCellClick}
@@ -159,7 +159,7 @@ export const Game = () => {
           </div>
 
           {/* Constraints Panel */}
-          <div className="w-full lg:w-auto max-h-[65vh] overflow-y-auto">
+          <div className="w-full lg:w-80 max-h-[calc(100vh-180px)] overflow-y-auto flex-shrink-0">
             <ConstraintsPanel 
               constraints={puzzle.definition.constraints} 
               grid={puzzle.currentBoard}
@@ -170,7 +170,7 @@ export const Game = () => {
 
       {/* Footer */}
       <motion.footer 
-        className="relative z-10 p-4 md:p-6 flex justify-center items-center space-x-6"
+        className="relative z-10 p-3 md:p-4 flex justify-center items-center space-x-4 md:space-x-6"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
