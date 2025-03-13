@@ -1,35 +1,15 @@
-import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, Difficulty, CatShape, SquareShape, CircleShape, TriangleShape } from './types';
+import { DIFFICULTY_SETTINGS } from './DifficultySettings';
+import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, CatShape, SquareShape, CircleShape, TriangleShape } from './types';
 
 export class PuzzleGenerator {
   private static readonly SHAPES: ShapeId[] = [SquareShape, CircleShape, TriangleShape];
   
-  private static readonly DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
-    easy: {
-      size: 2,
-      difficulty: 'easy',
-      minConstraints: 2,
-      maxConstraints: 3,
-      requiredSuperpositions: 1
-    },
-    medium: {
-      size: 3,
-      difficulty: 'medium',
-      minConstraints: 3,
-      maxConstraints: 5,
-      requiredSuperpositions: 2
-    },
-    hard: {
-      size: 4,
-      difficulty: 'hard',
-      minConstraints: 4,
-      maxConstraints: 7,
-      requiredSuperpositions: 3
-    }
-  };
-
   public static generate(config: Partial<PuzzleConfig> = {}): PuzzleDefinition {
     const fullConfig = this.getFullConfig(config);
-    const initialBoard = this.initializeGrid(fullConfig.size);
+    const initialBoard = this.initializeGrid(
+      fullConfig.width, 
+      fullConfig.height
+    );
     const constraints = this.generateConstraints(fullConfig);
     
     return {
@@ -38,9 +18,9 @@ export class PuzzleGenerator {
     };
   }
 
-  private static initializeGrid(size: number): GameBoard {
-    return Array(size).fill(null).map(() =>
-      Array(size).fill(null).map(() => ({
+  private static initializeGrid(width: number, height: number): GameBoard {
+    return Array(height).fill(null).map(() =>
+      Array(width).fill(null).map(() => ({
         shape: CatShape,
         locked: false
       }))
@@ -63,9 +43,13 @@ export class PuzzleGenerator {
       }
     });
 
+    // Get board dimensions
+    const width = config.width;
+    const height = config.height;
+
     // Generate random constraints
     while (constraints.length < numConstraints) {
-      const constraint = this.generateRandomConstraint(config.size);
+      const constraint = this.generateRandomConstraint(width, height);
       if (this.isValidConstraint(constraint, constraints)) {
         constraints.push(constraint);
       }
@@ -77,24 +61,27 @@ export class PuzzleGenerator {
   /**
    * Generate a random constraint
    */
-  private static generateRandomConstraint(size: number): ConstraintDefinition {
+  private static generateRandomConstraint(width: number, height: number): ConstraintDefinition {
     const type = Math.random() < 0.5 ? 'row' : 'column';
-    const index = Math.floor(Math.random() * size);
+    const index = Math.floor(Math.random() * (type === 'row' ? height : width));
     const shape = Math.random() < 0.75 ? this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)] : undefined;
     const operator = this.getRandomOperator();
+    
+    // Get the size of the dimension we're constraining
+    const dimensionSize = type === 'row' ? width : height;
     
     // Adjust count based on operator to ensure meaningful constraints
     let count: number;
     if (operator === 'at_most') {
       // For "at most", ensure count is less than size to make it a meaningful constraint
-      const maxCount = shape ? Math.min(size - 1, 2) : size - 1;
+      const maxCount = shape ? Math.min(dimensionSize - 1, 2) : dimensionSize - 1;
       count = maxCount > 0 ? Math.floor(Math.random() * maxCount) + 1 : 1;
     } else if (operator === 'at_least') {
       // For "at least", ensure count is at least 1 but not equal to size
-      count = Math.floor(Math.random() * (size - 1)) + 1;
+      count = Math.floor(Math.random() * (dimensionSize - 1)) + 1;
     } else if (operator === 'exactly') {
       // For "exactly", any count between 1 and size is meaningful
-      count = Math.floor(Math.random() * size) + 1;
+      count = Math.floor(Math.random() * dimensionSize) + 1;
     } else {
       // For "none", count is always 0
       count = 0;
@@ -135,9 +122,12 @@ export class PuzzleGenerator {
    * Get full configuration by merging provided config with defaults
    */
   private static getFullConfig(partialConfig: Partial<PuzzleConfig>): Required<PuzzleConfig> {
-    const difficulty = partialConfig.difficulty || 'medium';
+    const difficulty = partialConfig.difficulty;
+    if (!difficulty) {
+      throw new Error('Difficulty is required');
+    }
     return {
-      ...this.DIFFICULTY_SETTINGS[difficulty],
+      ...DIFFICULTY_SETTINGS[difficulty],
       ...partialConfig
     };
   }

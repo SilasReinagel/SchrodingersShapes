@@ -16,7 +16,7 @@ export const Game = () => {
   const timerRef = useRef<{ getTime: () => string } | null>(null);
 
   useEffect(() => {
-    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: 'medium' });
+    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: 'level2' });
     const initialPuzzle = new CurrentPuzzle(initialPuzzleDef);
     setPuzzle(initialPuzzle);
   }, []);
@@ -41,7 +41,7 @@ export const Game = () => {
     // For non-cat cells, try to make the move
     const moveSuccessful = puzzle.makeMove(col, row, cell.shape);
     if (moveSuccessful) {
-      setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
+      setPuzzle(puzzle); // Create new instance to trigger re-render
       
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
@@ -55,7 +55,7 @@ export const Game = () => {
 
     const moveSuccessful = puzzle.makeMove(col, row, shape);
     if (moveSuccessful) {
-      setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
+      setPuzzle(puzzle); // Create new instance to trigger re-render
       
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
@@ -68,11 +68,11 @@ export const Game = () => {
     if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
     
     puzzle.undoMove();
-    setPuzzle(new CurrentPuzzle(puzzle)); // Create new instance to trigger re-render
+    setPuzzle(puzzle); // Create new instance to trigger re-render
   }, [puzzle, showVictory]);
 
   const handleNextPuzzle = useCallback(() => {
-    const newPuzzleDef = PuzzleGenerator.generate({ difficulty: 'medium' });
+    const newPuzzleDef = PuzzleGenerator.generate({ difficulty: 'level2' });
     const newPuzzle = new CurrentPuzzle(newPuzzleDef);
     setPuzzle(newPuzzle);
     setShowVictory(false);
@@ -128,7 +128,7 @@ export const Game = () => {
           {/* Constraints Panel */}
           <div className="w-full lg:w-auto max-h-[65vh] overflow-y-auto">
             <ConstraintsPanel 
-              constraints={puzzle.constraints} 
+              constraints={puzzle.definition.constraints} 
               grid={puzzle.currentBoard}
             />
           </div>

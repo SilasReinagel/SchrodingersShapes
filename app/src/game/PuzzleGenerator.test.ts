@@ -20,7 +20,7 @@ describe('PuzzleGenerator', () => {
   });
 
   it('should generate an easy puzzle correctly', () => {
-    const puzzle = PuzzleGenerator.generate({ difficulty: 'easy' });
+    const puzzle = PuzzleGenerator.generate({ difficulty: 'level1' });
     
     expect(puzzle.initialBoard.length).toBe(2);
     expect(puzzle.initialBoard[0].length).toBe(2);
@@ -29,7 +29,7 @@ describe('PuzzleGenerator', () => {
   });
 
   it('should generate a hard puzzle correctly', () => {
-    const puzzle = PuzzleGenerator.generate({ difficulty: 'hard' });
+    const puzzle = PuzzleGenerator.generate({ difficulty: 'level3' });
     
     expect(puzzle.initialBoard.length).toBe(4);
     expect(puzzle.initialBoard[0].length).toBe(4);
@@ -61,7 +61,7 @@ describe('PuzzleGenerator', () => {
 
   it('should respect custom size configuration', () => {
     const customSize = 5;
-    const puzzle = PuzzleGenerator.generate({ size: customSize, difficulty: 'medium' });
+    const puzzle = PuzzleGenerator.generate({ width: customSize, height: customSize, difficulty: 'level2' });
     
     expect(puzzle.initialBoard.length).toBe(customSize);
     expect(puzzle.initialBoard[0].length).toBe(customSize);

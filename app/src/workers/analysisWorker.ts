@@ -1,6 +1,7 @@
 import { PuzzleGenerator } from '../game/PuzzleGenerator';
 import { PuzzleSolver } from '../game/PuzzleSolver';
 import { Difficulty } from '../game/types';
+import { DIFFICULTY_SETTINGS } from '../game/DifficultySettings';
 
 interface DifficultyStats {
   minMoves: number;
@@ -14,6 +15,20 @@ interface DifficultyStats {
   avgDeadEnds: number;
   solvableCount: number;
   totalPuzzles: number;
+  avgSolveTimeMs: number;
+  possibleCombinations: number;
+}
+
+function calculatePossibleCombinations(difficulty: Difficulty): number {
+  // Get board size based on difficulty
+  const width = DIFFICULTY_SETTINGS[difficulty].width;
+  const height = DIFFICULTY_SETTINGS[difficulty].height;
+  const totalCells = width * height;
+  
+  // We have 4 possible shapes (Square, Circle, Triangle, Cat) for each non-locked cell
+  // For each cell, we can place any of these 4 shapes
+  // So it's 4^(totalCells) for total theoretical combinations
+  return Math.pow(4, totalCells);
 }
 
 function analyzePuzzles(difficulty: Difficulty, count: number): DifficultyStats {
@@ -28,17 +43,25 @@ function analyzePuzzles(difficulty: Difficulty, count: number): DifficultyStats 
     maxDeadEnds: -Infinity,
     avgDeadEnds: 0,
     solvableCount: 0,
-    totalPuzzles: count
+    totalPuzzles: count,
+    avgSolveTimeMs: 0,
+    possibleCombinations: calculatePossibleCombinations(difficulty)
   };
   
   let totalMoves = 0;
   let totalSolutions = 0;
   let totalDeadEnds = 0;
+  let totalSolveTime = 0;
   
   for (let i = 0; i < count; i++) {
     const puzzleDef = PuzzleGenerator.generate({ difficulty });
     const solver = new PuzzleSolver(puzzleDef);
+    
+    const startTime = performance.now();
     const result = solver.solve();
+    const endTime = performance.now();
+    
+    totalSolveTime += (endTime - startTime);
     
     if (result.isSolvable) {
       stats.solvableCount++;
@@ -60,6 +83,7 @@ function analyzePuzzles(difficulty: Difficulty, count: number): DifficultyStats 
   stats.avgMoves = stats.solvableCount > 0 ? totalMoves / stats.solvableCount : 0;
   stats.avgSolutions = stats.solvableCount > 0 ? totalSolutions / stats.solvableCount : 0;
   stats.avgDeadEnds = count > 0 ? totalDeadEnds / count : 0;
+  stats.avgSolveTimeMs = totalSolveTime / count;
   
   if (stats.solvableCount === 0) {
     stats.minMoves = 0;
@@ -77,7 +101,8 @@ self.onmessage = (e: MessageEvent) => {
   try {
     const results = analyzePuzzles(difficulty, batchSize);
     self.postMessage({ type: 'success', difficulty, results });
-  } catch (error) {
-    self.postMessage({ type: 'error', difficulty, error: error.message });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    self.postMessage({ type: 'error', difficulty, error: errorMessage });
   }
 }; 

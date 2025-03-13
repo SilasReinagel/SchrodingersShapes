@@ -13,6 +13,8 @@ export type Cell = {
 
 export type GameBoard = Cell[][];
 
+export type Difficulty = 'level1' | 'level2' | 'level3' | 'level4' | 'level5';
+
 export type ConstraintDefinition = {
   type: 'row' | 'column' | 'global';
   index?: number;
@@ -23,10 +25,10 @@ export type ConstraintDefinition = {
   };
 };
 
-export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export type PuzzleConfig = {
-  size: number; // Grid size (e.g., 2 for 2x2, 3 for 3x3)
+  width: number; // Grid width (e.g., 2 for 2x2, 3 for 3x3)
+  height: number; // Grid height (e.g., 2 for 2x2, 3 for 3x3)
   difficulty: Difficulty;
   minConstraints?: number; // Minimum number of constraints
   maxConstraints?: number; // Maximum number of constraints
@@ -42,6 +44,7 @@ export type PuzzleMove = {
   x: number;
   y: number;
   shape: ShapeId;
+  previousShape: ShapeId;
 };
 
 export type PuzzleSnapshot = {

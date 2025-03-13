@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Difficulty } from '../game/types';
+import { DIFFICULTY_SETTINGS } from '../game/DifficultySettings';
 
 interface DifficultyStats {
   minMoves: number;
@@ -14,6 +15,7 @@ interface DifficultyStats {
   avgDeadEnds: number;
   solvableCount: number;
   totalPuzzles: number;
+  avgSolveTimeMs: number;
 }
 
 interface WorkerMessage {
@@ -28,16 +30,18 @@ interface AnalysisConfig {
   batchSize: number;
 }
 
+interface DifficultyProgress {
+  completed: number;
+  total: number;
+  currentBatch: DifficultyStats | null;
+}
+
 interface AnalysisState {
   isRunning: boolean;
   startTime: number | null;
   endTime: number | null;
   results: Record<Difficulty, DifficultyStats> | null;
-  progress: {
-    completed: number;
-    total: number;
-    currentBatch: Record<Difficulty, DifficultyStats> | null;
-  };
+  progress: Record<Difficulty, DifficultyProgress>;
 }
 
 const DEFAULT_CONFIG: AnalysisConfig = {
@@ -45,13 +49,15 @@ const DEFAULT_CONFIG: AnalysisConfig = {
   batchSize: 50
 };
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTIES = Object.keys(DIFFICULTY_SETTINGS) as Difficulty[];
 
-const INITIAL_BATCH_COUNTS: Record<Difficulty, number> = {
-  easy: 0,
-  medium: 0,
-  hard: 0
-};
+const INITIAL_BATCH_COUNTS: Record<Difficulty, number> = Object.fromEntries(
+  DIFFICULTIES.map(d => [d, 0])
+) as Record<Difficulty, number>;
+
+const INITIAL_PROGRESS: Record<Difficulty, DifficultyProgress> = Object.fromEntries(
+  DIFFICULTIES.map(d => [d, { completed: 0, total: 0, currentBatch: null }])
+) as Record<Difficulty, DifficultyProgress>;
 
 export const Designer = () => {
   const [config, setConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
@@ -60,11 +66,7 @@ export const Designer = () => {
     startTime: null,
     endTime: null,
     results: null,
-    progress: {
-      completed: 0,
-      total: DEFAULT_CONFIG.totalPuzzles,
-      currentBatch: null
-    }
+    progress: INITIAL_PROGRESS
   });
 
   const workersRef = useRef<Record<Difficulty, Worker>>({} as Record<Difficulty, Worker>);
@@ -88,22 +90,16 @@ export const Designer = () => {
           
           // Update progress
           setAnalysis(prev => {
-            const newCurrentBatch: Record<Difficulty, DifficultyStats> = {
-              ...(prev.progress.currentBatch || {}) as Record<Difficulty, DifficultyStats>
+            const newProgress = { ...prev.progress };
+            newProgress[difficulty] = {
+              completed: Math.min(batchCountRef.current[difficulty] * config.batchSize, config.totalPuzzles),
+              total: config.totalPuzzles,
+              currentBatch: results
             };
-            newCurrentBatch[difficulty] = results;
-            
-            // Calculate total progress across all difficulties
-            const totalBatches = DIFFICULTIES.length * Math.ceil(config.totalPuzzles / config.batchSize);
-            const completedBatches = Object.values(batchCountRef.current).reduce((sum, count) => sum + (count || 0), 0);
-            
+
             return {
               ...prev,
-              progress: {
-                ...prev.progress,
-                completed: Math.min((completedBatches * config.batchSize), config.totalPuzzles),
-                currentBatch: newCurrentBatch
-              }
+              progress: newProgress
             };
           });
 
@@ -122,6 +118,7 @@ export const Designer = () => {
               avgMoves: (prev.avgMoves * i + results.avgMoves) / (i + 1),
               avgSolutions: (prev.avgSolutions * i + results.avgSolutions) / (i + 1),
               avgDeadEnds: (prev.avgDeadEnds * i + results.avgDeadEnds) / (i + 1),
+              avgSolveTimeMs: (prev.avgSolveTimeMs * i + results.avgSolveTimeMs) / (i + 1),
               minMoves: Math.min(prev.minMoves, results.minMoves),
               maxMoves: Math.max(prev.maxMoves, results.maxMoves),
               minSolutions: Math.min(prev.minSolutions, results.minSolutions),
@@ -159,7 +156,9 @@ export const Designer = () => {
     setConfig(prev => ({ ...prev, [field]: value }));
     setAnalysis(prev => ({
       ...prev,
-      progress: { ...prev.progress, total: field === 'totalPuzzles' ? value : prev.progress.total }
+      progress: Object.fromEntries(
+        DIFFICULTIES.map(d => [d, { ...prev.progress[d], total: field === 'totalPuzzles' ? value : prev.progress[d].total }])
+      ) as Record<Difficulty, DifficultyProgress>
     }));
   };
 
@@ -168,16 +167,16 @@ export const Designer = () => {
     aggregatedResultsRef.current = null;
     batchCountRef.current = { ...INITIAL_BATCH_COUNTS };
     
+    const initialProgress = Object.fromEntries(
+      DIFFICULTIES.map(d => [d, { completed: 0, total: config.totalPuzzles, currentBatch: null }])
+    ) as Record<Difficulty, DifficultyProgress>;
+
     setAnalysis({
       isRunning: true,
       startTime: Date.now(),
       endTime: null,
       results: null,
-      progress: {
-        completed: 0,
-        total: config.totalPuzzles,
-        currentBatch: null
-      }
+      progress: initialProgress
     });
 
     // Start analysis for each difficulty
@@ -206,8 +205,35 @@ export const Designer = () => {
     return `${minutes}m ${remainingSeconds.toFixed(2)}s`;
   };
 
+  const renderProgressBar = (difficulty: Difficulty) => {
+    const progress = analysis.progress[difficulty];
+    const percentage = (progress.completed / progress.total) * 100;
+
+    return (
+      <div className="mb-4">
+        <div className="flex justify-between text-sm mb-2">
+          <span className="capitalize">{difficulty}</span>
+          <span>
+            {progress.completed}/{progress.total} ({Math.round(percentage)}%)
+          </span>
+        </div>
+        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-indigo-500"
+            initial={{ width: '0%' }}
+            animate={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   const renderDifficultyStats = (difficulty: Difficulty, stats: DifficultyStats | undefined) => {
     if (!stats) return null;
+
+    const remaining = analysis.isRunning 
+      ? config.totalPuzzles - analysis.progress[difficulty].completed 
+      : 0;
 
     return (
       <motion.div
@@ -216,7 +242,14 @@ export const Designer = () => {
         transition={{ duration: 0.5 }}
         className="bg-white/10 backdrop-blur-sm rounded-xl p-6 space-y-4"
       >
-        <h3 className="text-xl font-bold text-white capitalize">{difficulty}</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold text-white capitalize">{difficulty}</h3>
+          {analysis.isRunning && (
+            <div className="text-sm text-white/60">
+              Remaining: {remaining}
+            </div>
+          )}
+        </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -227,8 +260,8 @@ export const Designer = () => {
           </div>
 
           <div>
-            <h4 className="text-white/60 text-sm">Average Moves</h4>
-            <p className="text-white text-lg">{stats.avgMoves.toFixed(1)}</p>
+            <h4 className="text-white/60 text-sm">Avg Solve Time</h4>
+            <p className="text-white text-lg">{stats.avgSolveTimeMs.toFixed(2)}ms</p>
           </div>
         </div>
 
@@ -348,20 +381,14 @@ export const Designer = () => {
             animate={{ opacity: 1 }}
             className="space-y-8"
           >
-            {/* Progress Bar */}
+            {/* Progress Bars */}
             {analysis.isRunning && (
               <div className="mb-8">
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Progress</span>
-                  <span>{Math.round((analysis.progress.completed / analysis.progress.total) * 100)}%</span>
-                </div>
-                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-indigo-500"
-                    initial={{ width: '0%' }}
-                    animate={{ width: `${(analysis.progress.completed / analysis.progress.total) * 100}%` }}
-                  />
-                </div>
+                {DIFFICULTIES.map(difficulty => (
+                  <div key={difficulty}>
+                    {renderProgressBar(difficulty)}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -382,7 +409,9 @@ export const Designer = () => {
                 <div key={difficulty}>
                   {renderDifficultyStats(
                     difficulty,
-                    analysis.isRunning ? analysis.progress.currentBatch?.[difficulty] : analysis.results?.[difficulty]
+                    analysis.isRunning 
+                      ? analysis.progress[difficulty].currentBatch || undefined 
+                      : analysis.results?.[difficulty]
                   )}
                 </div>
               ))}
