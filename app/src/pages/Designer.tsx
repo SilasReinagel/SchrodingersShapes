@@ -16,6 +16,7 @@ interface DifficultyStats {
   solvableCount: number;
   totalPuzzles: number;
   avgSolveTimeMs: number;
+  possibleCombinations: number;
 }
 
 interface WorkerMessage {
@@ -124,7 +125,8 @@ export const Designer = () => {
               minSolutions: Math.min(prev.minSolutions, results.minSolutions),
               maxSolutions: Math.max(prev.maxSolutions, results.maxSolutions),
               minDeadEnds: Math.min(prev.minDeadEnds, results.minDeadEnds),
-              maxDeadEnds: Math.max(prev.maxDeadEnds, results.maxDeadEnds)
+              maxDeadEnds: Math.max(prev.maxDeadEnds, results.maxDeadEnds),
+              possibleCombinations: prev.possibleCombinations + results.possibleCombinations
             };
           }
 
@@ -205,6 +207,19 @@ export const Designer = () => {
     return `${minutes}m ${remainingSeconds.toFixed(2)}s`;
   };
 
+  const formatNumber = (num: number): string => {
+    if (num >= 1e9) {
+      return `${(num / 1e9).toFixed(2)}B`;
+    }
+    if (num >= 1e6) {
+      return `${(num / 1e6).toFixed(2)}M`;
+    }
+    if (num >= 1e3) {
+      return `${(num / 1e3).toFixed(2)}K`;
+    }
+    return num.toString();
+  };
+
   const renderProgressBar = (difficulty: Difficulty) => {
     const progress = analysis.progress[difficulty];
     const percentage = (progress.completed / progress.total) * 100;
@@ -235,6 +250,10 @@ export const Designer = () => {
       ? config.totalPuzzles - analysis.progress[difficulty].completed 
       : 0;
 
+    // Get board dimensions from difficulty settings
+    const width = DIFFICULTY_SETTINGS[difficulty].width;
+    const height = DIFFICULTY_SETTINGS[difficulty].height;
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -263,6 +282,14 @@ export const Designer = () => {
             <h4 className="text-white/60 text-sm">Avg Solve Time</h4>
             <p className="text-white text-lg">{stats.avgSolveTimeMs.toFixed(2)}ms</p>
           </div>
+        </div>
+
+        <div className="bg-white/5 rounded-lg p-4 mt-4">
+          <h4 className="text-white/60 text-sm mb-2">Possible Combinations</h4>
+          <p className="text-white text-lg font-mono">{formatNumber(stats.possibleCombinations)}</p>
+          <p className="text-white/40 text-xs mt-1">
+            Board size: {width}×{height} = {width * height} cells
+          </p>
         </div>
 
         <div className="space-y-2 mt-4">

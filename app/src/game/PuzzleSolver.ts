@@ -67,7 +67,9 @@ export class PuzzleSolver {
     deadEnds: number;
     isSolvable: boolean;
   } {
-    const size = this.puzzle.currentBoard.length;
+    // Get the actual width and height of the board
+    const height = this.puzzle.currentBoard.length;
+    const width = this.puzzle.currentBoard[0].length;
     
     // If we've already found a solution with fewer moves, prune this branch
     if (moveCount >= this.fewestMoves) {
@@ -119,13 +121,13 @@ export class PuzzleSolver {
     
     // Move to the next cell
     nextX++;
-    if (nextX >= size) {
+    if (nextX >= width) {
       nextX = 0;
       nextY++;
     }
     
     // If we've gone through all cells and haven't found a solution, it's a dead end
-    if (nextY >= size) {
+    if (nextY >= height) {
       this.deadEnds++;
       
       const result = {
@@ -209,7 +211,7 @@ export class PuzzleSolver {
   }
   
   /**
-   * Get the number of dead ends
+   * Get the number of dead ends encountered
    */
   public getDeadEnds(): number {
     return this.deadEnds;

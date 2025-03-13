@@ -28,7 +28,8 @@ const countShapesInRow = (grid: GameBoard, rowIndex: number, shape?: number): nu
 const countShapesInColumn = (grid: GameBoard, colIndex: number, shape?: number): number => {
   let count = 0;
   grid.forEach(row => {
-    if (shape === undefined || row[colIndex].shape === shape) {
+    const cell = row[colIndex];
+    if (shape === undefined || cell.shape === shape) {
       count++;
     }
   });

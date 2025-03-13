@@ -82,7 +82,7 @@ export class PuzzleGenerator {
     } else if (operator === 'exactly') {
       // For "exactly", any count between 1 and size is meaningful
       count = Math.floor(Math.random() * dimensionSize) + 1;
-    } else {
+    } else { // 'none'
       // For "none", count is always 0
       count = 0;
     }
