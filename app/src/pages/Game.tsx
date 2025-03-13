@@ -69,6 +69,10 @@ export const Game = () => {
 
   const handleShapeSelect = useCallback((row: number, col: number, shape: ShapeId) => {
     if (!puzzle || showVictory) return;
+    
+    if (!isPlaying) {
+      setIsPlaying(true);
+    }
 
     const moveSuccessful = puzzle.makeMove(col, row, shape);
     if (moveSuccessful) {
@@ -79,7 +83,7 @@ export const Game = () => {
         setShowVictory(true);
       }
     }
-  }, [puzzle, showVictory]);
+  }, [puzzle, showVictory, isPlaying]);
 
   const handleUndo = useCallback(() => {
     if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
@@ -91,6 +95,19 @@ export const Game = () => {
   const handleNextPuzzle = useCallback(() => {
     generateNewPuzzle(difficulty);
   }, [difficulty]);
+
+  const handleResetLevel = useCallback(() => {
+    if (!puzzle) return;
+    
+    // Reset the puzzle to its initial state
+    const resetPuzzle = new CurrentPuzzle(puzzle.definition);
+    resetPuzzle.resetToInitial();
+    setPuzzle(resetPuzzle);
+    
+    // Reset game state
+    setIsPlaying(false);
+    setShowVictory(false);
+  }, [puzzle]);
 
   const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDifficulty(e.target.value as Difficulty);
@@ -180,6 +197,13 @@ export const Game = () => {
           disabled={!puzzle.getCanUndo() || showVictory}
         >
           Undo
+        </button>
+        <button 
+          className="nav-button"
+          onClick={handleResetLevel}
+          disabled={showVictory}
+        >
+          Reset
         </button>
         <div className="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
           Moves: {puzzle.getMoveCount()}

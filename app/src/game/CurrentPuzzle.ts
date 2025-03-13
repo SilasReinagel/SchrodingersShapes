@@ -60,7 +60,7 @@ export class CurrentPuzzle {
     return true;
   }
 
-  public resetPuzzle(): void {
+  public resetToInitial(): void {
     // Reset board to initial state
     for (let y = 0; y < this.currentBoard.length; y++) {
       for (let x = 0; x < this.currentBoard[y].length; x++) {
@@ -70,6 +70,11 @@ export class CurrentPuzzle {
     // Clear move history
     this.moveHistory.length = 0;
     this.updateConstraintCache();
+  }
+
+  // Keep resetPuzzle as an alias for backward compatibility
+  public resetPuzzle(): void {
+    this.resetToInitial();
   }
 
   public isPuzzleSolved(): boolean {

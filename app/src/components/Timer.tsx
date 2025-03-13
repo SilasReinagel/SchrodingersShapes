@@ -34,7 +34,7 @@ export const Timer = forwardRef<{ getTime: () => string }, TimerProps>(({ isPlay
   }));
 
   return (
-    <div className="text-lg font-mono">
+    <div className="bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-lg border border-white/20 font-mono">
       {formatTime(seconds)}
     </div>
   );
