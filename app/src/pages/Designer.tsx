@@ -253,6 +253,7 @@ export const Designer = () => {
     // Get board dimensions from difficulty settings
     const width = DIFFICULTY_SETTINGS[difficulty].width;
     const height = DIFFICULTY_SETTINGS[difficulty].height;
+    const totalCells = width * height;
 
     return (
       <motion.div
@@ -285,10 +286,19 @@ export const Designer = () => {
         </div>
 
         <div className="bg-white/5 rounded-lg p-4 mt-4">
-          <h4 className="text-white/60 text-sm mb-2">Possible Combinations</h4>
-          <p className="text-white text-lg font-mono">{formatNumber(stats.possibleCombinations)}</p>
-          <p className="text-white/40 text-xs mt-1">
-            Board size: {width}×{height} = {width * height} cells
+          <h4 className="text-white/60 text-sm mb-2">Board Information</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-white/40 text-xs">Dimensions</p>
+              <p className="text-white">{width}×{height} ({totalCells} cells)</p>
+            </div>
+            <div>
+              <p className="text-white/40 text-xs">Possible Combinations</p>
+              <p className="text-white font-mono">{formatNumber(stats.possibleCombinations)}</p>
+            </div>
+          </div>
+          <p className="text-white/40 text-xs mt-2">
+            Each cell can be in 4 states (Cat, Square, Circle, Triangle)
           </p>
         </div>
 
@@ -346,6 +356,132 @@ export const Designer = () => {
           </div>
         </div>
       </motion.div>
+    );
+  };
+
+  const renderDifficultyComparison = () => {
+    if (!analysis.results) return null;
+    
+    // Calculate average values across all difficulties
+    const difficultyData = DIFFICULTIES.map(difficulty => {
+      const results = analysis.results![difficulty];
+      return {
+        difficulty,
+        solvableRate: results.solvableCount / results.totalPuzzles * 100,
+        avgMoves: results.avgMoves,
+        avgSolutions: results.avgSolutions,
+        avgDeadEnds: results.avgDeadEnds,
+        avgSolveTime: results.avgSolveTimeMs
+      };
+    });
+
+    return (
+      <div className="mt-16">
+        <h2 className="text-2xl font-bold mb-6 text-center">Difficulty Analysis</h2>
+        
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+          <h3 className="text-xl font-semibold mb-4">Comparative Analysis</h3>
+          
+          {/* Solvable Rate Comparison */}
+          <div className="mb-8">
+            <h4 className="text-white/60 text-sm font-semibold mb-3">Solvable Rate (%)</h4>
+            <div className="space-y-3">
+              {difficultyData.map(data => (
+                <div key={`solvable-${data.difficulty}`} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="capitalize">{data.difficulty}</span>
+                    <span>{data.solvableRate.toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500" 
+                      style={{ width: `${data.solvableRate}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Average Moves Comparison */}
+          <div className="mb-8">
+            <h4 className="text-white/60 text-sm font-semibold mb-3">Average Moves</h4>
+            <div className="space-y-3">
+              {difficultyData.map(data => {
+                const maxMoves = Math.max(...difficultyData.map(d => d.avgMoves));
+                const percentage = (data.avgMoves / maxMoves) * 100;
+                
+                return (
+                  <div key={`moves-${data.difficulty}`} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="capitalize">{data.difficulty}</span>
+                      <span>{data.avgMoves.toFixed(1)}</span>
+                    </div>
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Average Solutions Comparison */}
+          <div className="mb-8">
+            <h4 className="text-white/60 text-sm font-semibold mb-3">Average Solutions</h4>
+            <div className="space-y-3">
+              {difficultyData.map(data => {
+                const maxSolutions = Math.max(...difficultyData.map(d => d.avgSolutions));
+                const percentage = (data.avgSolutions / maxSolutions) * 100;
+                
+                return (
+                  <div key={`solutions-${data.difficulty}`} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="capitalize">{data.difficulty}</span>
+                      <span>{data.avgSolutions.toFixed(1)}</span>
+                    </div>
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-purple-500" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Average Solve Time Comparison */}
+          <div>
+            <h4 className="text-white/60 text-sm font-semibold mb-3">Average Solve Time (ms)</h4>
+            <div className="space-y-3">
+              {difficultyData.map(data => {
+                const maxTime = Math.max(...difficultyData.map(d => d.avgSolveTime));
+                const percentage = (data.avgSolveTime / maxTime) * 100;
+                
+                return (
+                  <div key={`time-${data.difficulty}`} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="capitalize">{data.difficulty}</span>
+                      <span>{data.avgSolveTime.toFixed(2)}ms</span>
+                    </div>
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-amber-500" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -443,6 +579,9 @@ export const Designer = () => {
                 </div>
               ))}
             </div>
+            
+            {/* Difficulty Comparison */}
+            {!analysis.isRunning && analysis.results && renderDifficultyComparison()}
           </motion.div>
         )}
       </div>
