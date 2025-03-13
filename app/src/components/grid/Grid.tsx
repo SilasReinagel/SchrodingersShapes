@@ -52,6 +52,10 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
     onCellClick(row, col);
   };
 
+  // Get grid dimensions
+  const height = grid.length;
+  const width = grid[0].length;
+
   return (
     <motion.div
       ref={gridRef}
@@ -63,7 +67,9 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
       <div 
         className="grid h-full gap-2 md:gap-3 p-3 md:p-4" 
         style={{ 
-          gridTemplateColumns: `repeat(${grid.length}, minmax(0, 1fr))`
+          gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
+          aspectRatio: width / height
         }}
       >
         {grid.map((row, rowIndex) => (
