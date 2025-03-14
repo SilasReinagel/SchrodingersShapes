@@ -26,43 +26,75 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
       onRequestClose={onClose}
       className="modal-content"
       overlayClassName="modal-overlay"
+      closeTimeoutMS={300}
     >
-      {isOpen && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} />}
-      
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white rounded-2xl p-8 max-w-md mx-auto relative z-50 shadow-xl"
+        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.8, opacity: 0, y: 20 }}
+        transition={{ 
+          type: "spring",
+          stiffness: 400,
+          damping: 30
+        }}
+        className="bg-white rounded-3xl p-8 max-w-md mx-auto relative shadow-2xl"
       >
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-shape-square to-shape-circle bg-clip-text text-transparent">
+        {isOpen && (
+          <Confetti 
+            width={width} 
+            height={height} 
+            recycle={false} 
+            numberOfPieces={200}
+            gravity={0.3}
+            initialVelocityY={-5}
+            colors={['#FFB5BA', '#A8D8FF', '#FFE5B4']}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none'
+            }}
+          />
+        )}
+        
+        <h2 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle bg-clip-text text-transparent">
           Puzzle Solved!
         </h2>
         
-        <div className="space-y-4 mb-8">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Moves:</span>
-            <span className="text-2xl font-semibold">{moves}</span>
+        <div className="space-y-6 mb-8">
+          <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
+            <span className="text-gray-800 font-medium">Moves</span>
+            <span className="text-3xl font-bold text-gray-900">
+              {moves}
+            </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Time:</span>
-            <span className="text-2xl font-semibold">{time}</span>
+          <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
+            <span className="text-gray-800 font-medium">Time</span>
+            <span className="text-3xl font-bold text-gray-900">
+              {time}
+            </span>
           </div>
         </div>
 
         <div className="flex flex-col space-y-3">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onNextPuzzle}
-            className="w-full py-3 px-6 bg-gradient-to-r from-shape-square to-shape-circle text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
+            className="w-full py-4 px-6 bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle text-white rounded-xl font-bold text-lg hover:opacity-90 transition-opacity shadow-lg"
           >
             Next Puzzle
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onClose}
-            className="w-full py-3 px-6 border-2 border-gray-300 text-gray-600 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            className="w-full py-4 px-6 bg-gray-100 text-gray-800 rounded-xl font-bold text-lg hover:bg-gray-200 transition-colors"
           >
             Keep Playing
-          </button>
+          </motion.button>
         </div>
       </motion.div>
     </ReactModal>

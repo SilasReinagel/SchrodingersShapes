@@ -39,7 +39,7 @@ export const Game: React.FC = () => {
           <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8 w-full max-h-[calc(100vh-120px)]">
             {/* Puzzle Grid Container */}
             <div className="w-full lg:w-auto flex-shrink-0 flex justify-center lg:flex-1">
-              <div className="w-full max-w-2xl lg:max-w-4xl h-auto" style={{ maxHeight: 'calc(100vh - 140px)', minHeight: '70vh' }}>
+              <div className="w-full max-w-2xl lg:max-w-4xl h-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                 <Grid 
                   grid={puzzle.currentBoard}
                   onCellClick={handleCellClick}
