@@ -1,130 +1,22 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { PuzzleGenerator } from '../game/PuzzleGenerator';
+import React from 'react';
 import { Grid } from '../components/grid/Grid';
 import { ConstraintsPanel } from '../components/constraints/ConstraintsPanel';
 import { VictoryModal } from '../components/VictoryModal';
-import type { ShapeId, Difficulty } from '../game/types';
-import { Timer } from '../components/Timer';
-import { CurrentPuzzle } from '../game/CurrentPuzzle';
-import { CatShape } from '../game/types';
+import { TopBar } from '../components/TopBar';
+import { BottomBar } from '../components/BottomBar';
+import { useGame } from '../contexts/GameContext';
 
-// Difficulty display names
-const DIFFICULTY_NAMES: Record<Difficulty, string> = {
-  level1: 'Level 1 - Easy',
-  level2: 'Level 2 - Medium',
-  level3: 'Level 3 - Challenging',
-  level4: 'Level 4 - Hard',
-  level5: 'Level 5 - Expert'
-};
-
-export const Game = () => {
-  const puzzleRef = useRef<CurrentPuzzle | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showVictory, setShowVictory] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>('level2');
-  const timerRef = useRef<{ getTime: () => string } | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [, forceUpdate] = useState({});
-
-  const generateNewPuzzle = useCallback((difficultyLevel: Difficulty) => {
-    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: difficultyLevel });
-
-    puzzleRef.current = new CurrentPuzzle(initialPuzzleDef);
-    
-    setIsPlaying(false);
-    setShowVictory(false);
-    setIsLoaded(true);
-    forceUpdate({});
-  }, []);
-
-  // Initialize puzzle on component mount
-  useEffect(() => {
-    generateNewPuzzle(difficulty);
-  }, [difficulty, generateNewPuzzle]);
-
-  const handleCellClick = useCallback((row: number, col: number): void => {
-    const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory) return;
-    
-    if (!isPlaying) {
-      setIsPlaying(true);
-    }
-
-    if (!puzzle.canMove(col, row)) {
-      return;
-    }
-    
-    // Let the Grid component handle the ShapePicker for cat cells
-    const cell = puzzle.currentBoard[row][col];
-    if (cell.shape === CatShape) {
-      return;
-    }
-
-    // For non-cat cells, try to make the move
-    const moveSuccessful = puzzle.makeMove(col, row, cell.shape);
-    if (moveSuccessful) {
-      forceUpdate({});
-      
-      if (puzzle.isPuzzleSolved()) {
-        setIsPlaying(false);
-        setShowVictory(true);
-      }
-    }
-  }, [showVictory, isPlaying]);
-
-  const handleShapeSelect = useCallback((row: number, col: number, shape: ShapeId) => {
-    const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory) return;
-    
-    if (!isPlaying) {
-      setIsPlaying(true);
-    }
-
-    const moveSuccessful = puzzle.makeMove(col, row, shape);
-    
-    if (moveSuccessful) {
-      forceUpdate({});
-      
-      if (puzzle.isPuzzleSolved()) {
-        setIsPlaying(false);
-        setShowVictory(true);
-      }
-    }
-  }, [showVictory, isPlaying]);
-
-  const handleUndo = useCallback(() => {
-    const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
-    
-    puzzle.undoMove();
-    forceUpdate({});
-  }, [showVictory]);
-
-  const handleNextPuzzle = useCallback(() => {
-    generateNewPuzzle(difficulty);
-  }, [difficulty, generateNewPuzzle]);
-
-  const handleResetLevel = useCallback(() => {
-    const puzzle = puzzleRef.current;
-    if (!puzzle) return;
-    
-    // Reset the puzzle to its initial state
-    puzzle.resetToInitial();
-    
-    // Reset game state
-    setIsPlaying(false);
-    setShowVictory(false);
-    forceUpdate({});
-  }, []);
-
-  const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setDifficulty(e.target.value as Difficulty);
-  };
-
-  const handleCloseVictory = useCallback(() => {
-    setShowVictory(false);
-  }, []);
+export const Game: React.FC = () => {
+  const {
+    puzzle,
+    showVictory,
+    isLoaded,
+    timer,
+    handleCellClick,
+    handleShapeSelect,
+    handleCloseVictory,
+    handleNextPuzzle,
+  } = useGame();
 
   // Show loading state if puzzle is not yet initialized
   if (!isLoaded) {
@@ -135,114 +27,47 @@ export const Game = () => {
     );
   }
 
-  const puzzle = puzzleRef.current;
   if (!puzzle) return null;
 
   return (
-    <div className="h-screen text-text-primary relative overflow-hidden flex flex-col">
-      {/* Background Bubbles */}
-      <div className="bubble-1" />
-      <div className="bubble-2" />
-      <div className="bubble-3" />
+    <div className="flex flex-col min-h-screen">
+      <div className="h-screen text-text-primary relative overflow-hidden flex flex-col">
+        <TopBar />
 
-      {/* Navigation Bar */}
-      <motion.nav 
-        className="relative z-10 flex items-center justify-between p-4 md:p-6"
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-      >
-        <h1 className="text-xl md:text-2xl font-bold">
-          <span className="bg-gradient-to-r from-shape-square to-shape-circle bg-clip-text text-transparent">
-            Schrödinger's Shapes
-          </span>
-        </h1>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <select
-              value={difficulty}
-              onChange={handleDifficultyChange}
-              className="appearance-none bg-white/30 backdrop-blur-sm text-white px-4 py-2 pr-8 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium shadow-md"
-            >
-              {Object.entries(DIFFICULTY_NAMES).map(([value, name]) => (
-                <option key={value} value={value} className="bg-gray-800 text-white">{name}</option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-              </svg>
+        {/* Main Content */}
+        <main className="flex-1 container mx-auto px-4 py-2 relative z-10 flex items-center justify-center overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8 w-full max-h-[calc(100vh-120px)]">
+            {/* Puzzle Grid Container */}
+            <div className="w-full lg:w-auto flex-shrink-0 flex justify-center lg:flex-1">
+              <div className="w-full max-w-2xl lg:max-w-4xl h-auto" style={{ maxHeight: 'calc(100vh - 140px)', minHeight: '70vh' }}>
+                <Grid 
+                  grid={puzzle.currentBoard}
+                  onCellClick={handleCellClick}
+                  onShapeSelect={handleShapeSelect}
+                />
+              </div>
             </div>
-          </div>
-          <Timer 
-            isPlaying={isPlaying} 
-            ref={timerRef}
-          />
-        </div>
-      </motion.nav>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-2 relative z-10 flex items-center justify-center overflow-hidden">
-        <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-6 w-full max-h-[calc(100vh-160px)]">
-          {/* Puzzle Grid Container */}
-          <div className="w-full lg:w-auto flex-shrink-0 flex justify-center">
-            <div className="w-full max-w-md lg:max-w-lg h-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-              <Grid 
+            {/* Constraints Panel */}
+            <div className="w-full lg:w-96 max-h-[calc(100vh-140px)] overflow-y-auto flex-shrink-0">
+              <ConstraintsPanel 
+                constraints={puzzle.definition.constraints} 
                 grid={puzzle.currentBoard}
-                onCellClick={handleCellClick}
-                onShapeSelect={handleShapeSelect}
               />
             </div>
           </div>
+        </main>
 
-          {/* Constraints Panel */}
-          <div className="w-full lg:w-80 max-h-[calc(100vh-180px)] overflow-y-auto flex-shrink-0">
-            <ConstraintsPanel 
-              constraints={puzzle.definition.constraints} 
-              grid={puzzle.currentBoard}
-            />
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <motion.footer 
-        className="relative z-10 p-3 md:p-4 flex justify-center items-center space-x-4 md:space-x-6"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-      >
-        <button 
-          className="nav-button"
-          onClick={handleUndo}
-          disabled={!puzzle.getCanUndo() || showVictory}
-        >
-          Undo
-        </button>
-        <button 
-          className="nav-button"
-          onClick={handleResetLevel}
-          disabled={showVictory}
-        >
-          Reset
-        </button>
-        <div className="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
-          Moves: {puzzle.getMoveCount()}
-        </div>
-        <button 
-          className="nav-button"
-          onClick={handleNextPuzzle}
-        >
-          New Puzzle
-        </button>
-      </motion.footer>
-
-      {/* Victory Modal */}
-      <VictoryModal
-        isOpen={showVictory}
-        onClose={handleCloseVictory}
-        moves={puzzle.getMoveCount()}
-        time={timerRef.current?.getTime() || '0:00'}
-        onNextPuzzle={handleNextPuzzle}
-      />
+        {/* Victory Modal */}
+        <VictoryModal
+          isOpen={showVictory}
+          onClose={handleCloseVictory}
+          moves={puzzle.getMoveCount()}
+          time={timer}
+          onNextPuzzle={handleNextPuzzle}
+        />
+      </div>
+      <BottomBar />
     </div>
   );
 }; 

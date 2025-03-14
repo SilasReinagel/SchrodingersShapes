@@ -22,6 +22,10 @@ export default {
         '4xl': '2rem',
         '5xl': '2.5rem',
       },
+      fontFamily: {
+        'montserrat': ['Montserrat', 'system-ui', 'sans-serif'],
+        'inter': ['Inter', 'system-ui', 'sans-serif'],
+      },
     },
   },
   plugins: [],
