@@ -13,6 +13,7 @@ export class CurrentPuzzle {
     this.currentBoard = this.deepCloneBoard(puzzleDef.initialBoard);
     // Pre-allocate constraint statuses array
     this.currentConstraintStatuses = new Array(puzzleDef.constraints.length);
+    
     this.updateConstraintCache();
   }
 

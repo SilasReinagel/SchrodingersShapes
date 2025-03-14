@@ -8,7 +8,6 @@ import type { ShapeId, Difficulty } from '../game/types';
 import { Timer } from '../components/Timer';
 import { CurrentPuzzle } from '../game/CurrentPuzzle';
 import { CatShape } from '../game/types';
-import { DIFFICULTY_SETTINGS } from '../game/DifficultySettings';
 
 // Difficulty display names
 const DIFFICULTY_NAMES: Record<Difficulty, string> = {
@@ -20,25 +19,32 @@ const DIFFICULTY_NAMES: Record<Difficulty, string> = {
 };
 
 export const Game = () => {
-  const [puzzle, setPuzzle] = useState<CurrentPuzzle | null>(null);
+  const puzzleRef = useRef<CurrentPuzzle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>('level2');
   const timerRef = useRef<{ getTime: () => string } | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [, forceUpdate] = useState({});
 
-  useEffect(() => {
-    generateNewPuzzle(difficulty);
-  }, [difficulty]);
-
-  const generateNewPuzzle = (difficultyLevel: Difficulty) => {
+  const generateNewPuzzle = useCallback((difficultyLevel: Difficulty) => {
     const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: difficultyLevel });
-    const initialPuzzle = new CurrentPuzzle(initialPuzzleDef);
-    setPuzzle(initialPuzzle);
+
+    puzzleRef.current = new CurrentPuzzle(initialPuzzleDef);
+    
     setIsPlaying(false);
     setShowVictory(false);
-  };
+    setIsLoaded(true);
+    forceUpdate({});
+  }, []);
+
+  // Initialize puzzle on component mount
+  useEffect(() => {
+    generateNewPuzzle(difficulty);
+  }, [difficulty, generateNewPuzzle]);
 
   const handleCellClick = useCallback((row: number, col: number): void => {
+    const puzzle = puzzleRef.current;
     if (!puzzle || showVictory) return;
     
     if (!isPlaying) {
@@ -58,16 +64,17 @@ export const Game = () => {
     // For non-cat cells, try to make the move
     const moveSuccessful = puzzle.makeMove(col, row, cell.shape);
     if (moveSuccessful) {
-      setPuzzle(new CurrentPuzzle(puzzle.definition)); // Create new instance to trigger re-render
+      forceUpdate({});
       
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
         setShowVictory(true);
       }
     }
-  }, [puzzle, showVictory, isPlaying]);
+  }, [showVictory, isPlaying]);
 
   const handleShapeSelect = useCallback((row: number, col: number, shape: ShapeId) => {
+    const puzzle = puzzleRef.current;
     if (!puzzle || showVictory) return;
     
     if (!isPlaying) {
@@ -75,39 +82,41 @@ export const Game = () => {
     }
 
     const moveSuccessful = puzzle.makeMove(col, row, shape);
+    
     if (moveSuccessful) {
-      setPuzzle(new CurrentPuzzle(puzzle.definition)); // Create new instance to trigger re-render
+      forceUpdate({});
       
       if (puzzle.isPuzzleSolved()) {
         setIsPlaying(false);
         setShowVictory(true);
       }
     }
-  }, [puzzle, showVictory, isPlaying]);
+  }, [showVictory, isPlaying]);
 
   const handleUndo = useCallback(() => {
+    const puzzle = puzzleRef.current;
     if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
     
     puzzle.undoMove();
-    setPuzzle(new CurrentPuzzle(puzzle.definition)); // Create new instance to trigger re-render
-  }, [puzzle, showVictory]);
+    forceUpdate({});
+  }, [showVictory]);
 
   const handleNextPuzzle = useCallback(() => {
     generateNewPuzzle(difficulty);
-  }, [difficulty]);
+  }, [difficulty, generateNewPuzzle]);
 
   const handleResetLevel = useCallback(() => {
+    const puzzle = puzzleRef.current;
     if (!puzzle) return;
     
     // Reset the puzzle to its initial state
-    const resetPuzzle = new CurrentPuzzle(puzzle.definition);
-    resetPuzzle.resetToInitial();
-    setPuzzle(resetPuzzle);
+    puzzle.resetToInitial();
     
     // Reset game state
     setIsPlaying(false);
     setShowVictory(false);
-  }, [puzzle]);
+    forceUpdate({});
+  }, []);
 
   const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDifficulty(e.target.value as Difficulty);
@@ -117,6 +126,16 @@ export const Game = () => {
     setShowVictory(false);
   }, []);
 
+  // Show loading state if puzzle is not yet initialized
+  if (!isLoaded) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-xl">Loading puzzle...</div>
+      </div>
+    );
+  }
+
+  const puzzle = puzzleRef.current;
   if (!puzzle) return null;
 
   return (
@@ -142,10 +161,10 @@ export const Game = () => {
             <select
               value={difficulty}
               onChange={handleDifficultyChange}
-              className="appearance-none bg-white/10 backdrop-blur-sm text-white px-4 py-2 pr-8 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="appearance-none bg-white/30 backdrop-blur-sm text-white px-4 py-2 pr-8 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium shadow-md"
             >
               {Object.entries(DIFFICULTY_NAMES).map(([value, name]) => (
-                <option key={value} value={value}>{name}</option>
+                <option key={value} value={value} className="bg-gray-800 text-white">{name}</option>
               ))}
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
