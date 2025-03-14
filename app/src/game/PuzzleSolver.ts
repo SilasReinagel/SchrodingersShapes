@@ -83,19 +83,8 @@ export class PuzzleSolver {
     
     // Check if we've seen this board state before
     const stateKey = this.getBoardStateKey();
-    if (this.stateCache.has(stateKey)) {
-      const cachedResult = this.stateCache.get(stateKey)!;
-      
-      // Update global statistics based on cached result
-      if (cachedResult.isSolvable) {
-        this.isSolvable = true;
-        this.correctSolutions += cachedResult.correctSolutions;
-        if (moveCount + cachedResult.fewestMoves < this.fewestMoves) {
-          this.fewestMoves = moveCount + cachedResult.fewestMoves;
-        }
-      }
-      this.deadEnds += cachedResult.deadEnds;
-      
+    const cachedResult = this.stateCache.get(stateKey);
+    if (cachedResult) {
       return cachedResult;
     }
     

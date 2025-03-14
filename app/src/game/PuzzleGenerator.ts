@@ -64,7 +64,7 @@ export class PuzzleGenerator {
   private static generateRandomConstraint(width: number, height: number): ConstraintDefinition {
     const type = Math.random() < 0.5 ? 'row' : 'column';
     const index = Math.floor(Math.random() * (type === 'row' ? height : width));
-    const shape = Math.random() < 0.75 ? this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)] : undefined;
+    const shape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
     const operator = this.getRandomOperator();
     
     // Get the size of the dimension we're constraining
@@ -74,7 +74,7 @@ export class PuzzleGenerator {
     let count: number;
     if (operator === 'at_most') {
       // For "at most", ensure count is less than size to make it a meaningful constraint
-      const maxCount = shape ? Math.min(dimensionSize - 1, 2) : dimensionSize - 1;
+      const maxCount = Math.min(dimensionSize - 1, 2);
       count = maxCount > 0 ? Math.floor(Math.random() * maxCount) + 1 : 1;
     } else if (operator === 'at_least') {
       // For "at least", ensure count is at least 1 but not equal to size

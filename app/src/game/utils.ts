@@ -1,11 +1,11 @@
-import { GameBoard, ConstraintDefinition } from './types';
+import { GameBoard, ConstraintDefinition, CatShape } from './types';
 
 // Count shapes in the entire grid
 const countShapesInGrid = (grid: GameBoard, shape?: number): number => {
   let count = 0;
   grid.forEach(row => {
     row.forEach(cell => {
-      if (shape === undefined || cell.shape === shape) {
+      if (shape === undefined || cell.shape === shape || cell.shape === CatShape) {
         count++;
       }
     });
@@ -17,7 +17,7 @@ const countShapesInGrid = (grid: GameBoard, shape?: number): number => {
 const countShapesInRow = (grid: GameBoard, rowIndex: number, shape?: number): number => {
   let count = 0;
   grid[rowIndex].forEach(cell => {
-    if (shape === undefined || cell.shape === shape) {
+    if (shape === undefined || cell.shape === shape || cell.shape === CatShape) {
       count++;
     }
   });
@@ -29,7 +29,7 @@ const countShapesInColumn = (grid: GameBoard, colIndex: number, shape?: number):
   let count = 0;
   grid.forEach(row => {
     const cell = row[colIndex];
-    if (shape === undefined || cell.shape === shape) {
+    if (shape === undefined || cell.shape === shape || cell.shape === CatShape) {
       count++;
     }
   });
