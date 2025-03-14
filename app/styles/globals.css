@@ -49,7 +49,7 @@
   }
 
   .floating-panel {
-    @apply bg-slate-100 rounded-4xl shadow-xl
+    @apply bg-sky-200 rounded-4xl shadow-xl
            border border-gray-100/20 backdrop-blur-sm;
   }
 
