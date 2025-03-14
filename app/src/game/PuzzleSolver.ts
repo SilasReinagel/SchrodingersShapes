@@ -2,7 +2,7 @@ import { CurrentPuzzle } from './CurrentPuzzle';
 import { PuzzleDefinition, ShapeId, SquareShape, CircleShape, TriangleShape, CatShape } from './types';
 
 export class PuzzleSolver {
-  private static readonly SHAPES: ShapeId[] = [SquareShape, CircleShape, TriangleShape, CatShape];
+  private static readonly SHAPES: ShapeId[] = [CatShape, SquareShape, CircleShape, TriangleShape];
   
   private puzzle: CurrentPuzzle;
   private fewestMoves: number = Infinity;
@@ -72,7 +72,8 @@ export class PuzzleSolver {
     const width = this.puzzle.currentBoard[0].length;
     
     // If we've already found a solution with fewer moves, prune this branch
-    if (moveCount >= this.fewestMoves) {
+    // But allow more exploration if we haven't found any solutions yet
+    if (this.correctSolutions > 0 && moveCount >= this.fewestMoves) {
       return {
         fewestMoves: Infinity,
         correctSolutions: 0,
@@ -145,28 +146,51 @@ export class PuzzleSolver {
     let branchDeadEnds = 0;
     let branchIsSolvable = false;
     
+    // Try Cat shape first since it's most flexible
+    const shapes: ShapeId[] = [CatShape, ...PuzzleSolver.SHAPES.filter(s => s !== CatShape)];
+    
     // Try each possible shape in the current cell
-    for (const shape of PuzzleSolver.SHAPES) {
+    for (const shape of shapes) {
       // Skip if the shape is already in this cell
       if (this.puzzle.currentBoard[y][x].shape === shape) {
-        continue; // Skip to the next shape instead of returning
+        continue;
       }
       
       // Make the move
       this.puzzle.makeMove(x, y, shape);
       
-      // Recursively try the next cell
-      const result = this.solveRecursive(nextX, nextY, moveCount + 1);
+      // Check if this move has potential
+      const constraintStatuses = this.puzzle.currentConstraintStatuses;
+      const previousStatuses = this.puzzle.previousConstraintStatuses;
       
-      // Update branch statistics
-      if (result.isSolvable) {
-        branchIsSolvable = true;
-        branchCorrectSolutions += result.correctSolutions;
-        if (result.fewestMoves + 1 < branchFewestMoves) {
-          branchFewestMoves = result.fewestMoves + 1;
+      // Count satisfied and unsatisfied constraints
+      const satisfiedCount = constraintStatuses.filter(status => status).length;
+      const previousSatisfiedCount = previousStatuses.filter(status => status).length;
+      
+      // Continue if:
+      // 1. The move is a Cat (always explore these)
+      // 2. The move satisfied more constraints
+      // 3. We haven't found any solutions yet (explore more paths)
+      // 4. We're early in the solution (first quarter of moves)
+      if (shape === CatShape || 
+          satisfiedCount > previousSatisfiedCount ||
+          this.correctSolutions === 0 ||
+          moveCount < (width * height) / 4) {
+        
+        const result = this.solveRecursive(nextX, nextY, moveCount + 1);
+        
+        // Update branch statistics
+        if (result.isSolvable) {
+          branchIsSolvable = true;
+          branchCorrectSolutions += result.correctSolutions;
+          if (result.fewestMoves + 1 < branchFewestMoves) {
+            branchFewestMoves = result.fewestMoves + 1;
+          }
         }
+        branchDeadEnds += result.deadEnds;
+      } else {
+        branchDeadEnds++;
       }
-      branchDeadEnds += result.deadEnds;
       
       // Undo the move to backtrack
       this.puzzle.undoMove();

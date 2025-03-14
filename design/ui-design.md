@@ -120,3 +120,34 @@ Below is a high-level **UI mockup** concept for **Schrödinger’s Shapes**, foc
 - **Responsive design** and quick puzzle completions encourage repeated plays and friendly competition.
 
 With this approach, **Schrödinger’s Shapes** feels intuitive, looks sleek, and invites the social, viral energy you’re aiming for.
+
+----
+
+## **6. Typography and Font Choices**
+
+1. **Header Font: Montserrat**
+   - **Primary Headers**: Montserrat Bold (700) for game title, modal headers, and section titles
+   - **Secondary Headers**: Montserrat SemiBold (600) for constraint panel titles and navigation elements
+   - **Characteristics**: Modern, geometric sans-serif with excellent readability at various sizes
+   - **Usage**: The clean, friendly character of Montserrat conveys a professional yet approachable feel that matches the game's puzzle aesthetic
+
+2. **Body Font: Inter**
+   - **Primary Text**: Inter Regular (400) for instructions, constraint descriptions, and general UI text
+   - **Emphasized Text**: Inter Medium (500) for important information like timer, move count
+   - **Characteristics**: Highly legible at small sizes with excellent screen rendering
+   - **Usage**: Pairs well with Montserrat while providing optimal readability for game instructions
+
+3. **Font Hierarchy**
+   - **Game Title**: Montserrat Bold, 28px-32px (desktop), 22px-24px (mobile)
+   - **Section Headers**: Montserrat SemiBold, 20px-24px (desktop), 18px-20px (mobile)
+   - **UI Elements**: Inter Medium, 16px-18px (desktop), 14px-16px (mobile)
+   - **Body Text**: Inter Regular, 16px (desktop), 14px (mobile)
+   - **Small UI Elements**: Inter Regular, 14px (desktop), 12px (mobile)
+
+4. **Font Implementation**
+   - Import via Google Fonts or include as local assets for optimal performance
+   - Implement using Tailwind's font family extensions
+   - Use appropriate fallbacks: `font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif`
+
+---
+

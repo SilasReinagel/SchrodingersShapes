@@ -6,13 +6,15 @@ export class CurrentPuzzle {
   public moveHistory: PuzzleMove[] = [];
   public currentBoard: GameBoard;
   public currentConstraintStatuses: boolean[];
+  public previousConstraintStatuses: boolean[];
 
   constructor(puzzleDef: PuzzleDefinition) {
     this.definition = puzzleDef;
     // Initial deep clone is necessary as we'll modify currentBoard
     this.currentBoard = this.deepCloneBoard(puzzleDef.initialBoard);
-    // Pre-allocate constraint statuses array
+    // Pre-allocate constraint statuses arrays
     this.currentConstraintStatuses = new Array(puzzleDef.constraints.length);
+    this.previousConstraintStatuses = new Array(puzzleDef.constraints.length).fill(false);
     
     this.updateConstraintCache();
   }
@@ -27,18 +29,23 @@ export class CurrentPuzzle {
   }
   
   public makeMove(x: number, y: number, shape: ShapeId): boolean {
-    if (this.currentBoard[y][x].locked) {
+    if (!this.canMove(x, y)) {
       return false;
     }
 
-    // Store previous shape for undo
-    const previousShape = this.currentBoard[y][x].shape;
-    
+    // Store previous constraint statuses
+    this.previousConstraintStatuses = [...this.currentConstraintStatuses];
+
+    // Store the move in history
+    this.moveHistory.push({
+      x,
+      y,
+      shape,
+      previousShape: this.currentBoard[y][x].shape
+    });
+
     // Update the board
     this.currentBoard[y][x].shape = shape;
-    
-    // Record the move with previous shape
-    this.moveHistory.push({ x, y, shape, previousShape });
 
     // Update constraint cache
     this.updateConstraintCache();
@@ -47,12 +54,12 @@ export class CurrentPuzzle {
   }
 
   public undoMove(): boolean {
-    if (this.moveHistory.length === 0) {
+    const lastMove = this.moveHistory.pop();
+    if (!lastMove) {
       return false;
     }
 
-    const lastMove = this.moveHistory.pop()!;
-    // Restore previous shape
+    // Restore the previous shape
     this.currentBoard[lastMove.y][lastMove.x].shape = lastMove.previousShape;
 
     // Update constraint cache
