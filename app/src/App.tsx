@@ -1,22 +1,20 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Game } from './pages/Game';
-import { Designer } from './pages/Designer';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { GameProvider } from './contexts/GameContext';
+import { Game } from './pages/Game';
+import { MainMenu } from './pages/MainMenu';
+import { Designer } from './pages/Designer';
 
-const App = () => {
+export const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-background font-inter">
-      <BrowserRouter>
-        <GameProvider>
-          <Routes>
-            <Route path="/" element={<Game />} />
-            <Route path="/designer" element={<Designer />} />
-          </Routes>
-        </GameProvider>
-      </BrowserRouter>
-    </div>
+    <GameProvider>
+      <Routes>
+        <Route path="/" element={<MainMenu />} />
+        <Route path="/game" element={<Game />} />
+        <Route path="/designer" element={<Designer />} />
+        <Route path="/tutorial" element={<Navigate to="/game" replace />} /> {/* TODO: Add tutorial page */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </GameProvider>
   );
 };
-
-export default App;

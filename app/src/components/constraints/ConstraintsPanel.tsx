@@ -81,7 +81,7 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints,
       <h2 className="text-lg md:text-xl font-semibold mb-4 bg-gradient-to-r from-shape-circle to-shape-triangle bg-clip-text text-transparent">
         Constraints
       </h2>
-      <div className="space-y-2 md:space-y-3">
+      <div className="space-y-1 md:space-y-2">
         {constraints.map((constraint, index) => (
           <motion.div
             key={index}
@@ -91,15 +91,15 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ constraints,
               duration: 0.3,
               delay: index * 0.1
             }}
-            className={`inner-panel text-base md:text-lg flex items-center justify-between ${
+            className={`inner-panel text-lg md:text-xl flex items-center justify-between ${
               constraintStatuses[index] ? 'text-green-600' : 'text-red-600'
             }`}
           >
             <span>{formatConstraint(constraint)}</span>
             {constraintStatuses[index] ? (
-              <CheckCircleIcon className="h-6 w-6 text-green-500" />
+              <CheckCircleIcon className="h-8 w-8 text-green-500" />
             ) : (
-              <XCircleIcon className="h-6 w-6 text-red-500" />
+              <XCircleIcon className="h-8 w-8 text-red-500" />
             )}
           </motion.div>
         ))}
