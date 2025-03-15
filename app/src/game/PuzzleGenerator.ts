@@ -46,47 +46,57 @@ export class PuzzleGenerator {
     // Get board dimensions
     const width = config.width;
     const height = config.height;
+    const totalCells = width * height;
 
     // Based on difficulty, add different types of clever constraints
     if (config.difficulty === 'level1') {
-      // Easy level: Simple counting constraints
+      // Easy level: Simple counting constraints and one global exact constraint
+      const globalShape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
+      const globalCount = Math.floor(totalCells / 3); // Use about 1/3 of the board
+
+      constraints.push({
+        type: 'global',
+        rule: {
+          shape: globalShape,
+          count: globalCount,
+          operator: 'exactly'
+        }
+      });
+
       while (constraints.length < numConstraints) {
         const constraint = this.generateRandomConstraint(width, height);
         if (this.isValidConstraint(constraint, constraints)) {
           constraints.push(constraint);
         }
       }
-    } else if (config.difficulty === 'level2') {
-      // Medium level: Add complementary constraints that encourage cat usage
-      const row = Math.floor(Math.random() * height);
+    } else if (config.difficulty === 'level2' || config.difficulty === 'level3') {
+      // Medium levels: Add complementary global constraints
       const shape1 = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
       const shape2 = this.SHAPES.filter(s => s !== shape1)[Math.floor(Math.random() * (this.SHAPES.length - 1))];
       
-      // Add two constraints that seem contradictory but can be solved with cats
-      // Make sure the count is achievable with cats
-      const count = Math.min(Math.floor(width / 2), 1); // At most 1 for each shape to ensure solvability
+      // Add two global constraints that seem contradictory but can be solved with cats
+      const count1 = Math.floor(totalCells / 3);
+      const count2 = Math.floor(totalCells / 3);
       
       constraints.push({
-        type: 'row',
-        index: row,
+        type: 'global',
         rule: {
           shape: shape1,
-          count,
+          count: count1,
           operator: 'exactly'
         }
       });
 
       constraints.push({
-        type: 'row',
-        index: row,
+        type: 'global',
         rule: {
           shape: shape2,
-          count,
+          count: count2,
           operator: 'exactly'
         }
       });
 
-      // Fill remaining constraints with simpler ones
+      // Add some row/column constraints
       while (constraints.length < numConstraints) {
         const constraint = this.generateRandomConstraint(width, height);
         if (this.isValidConstraint(constraint, constraints)) {
@@ -94,60 +104,22 @@ export class PuzzleGenerator {
         }
       }
     } else {
-      // Hard levels: Add overlapping requirements and relative quantity constraints
+      // Hard levels: Mix of global exact constraints and relative constraints
       
-      // Add intersecting constraints that suggest cat placement
-      const intersectRow = Math.floor(Math.random() * height);
-      const intersectCol = Math.floor(Math.random() * width);
-      const intersectShape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
-      
-      // Make sure the intersection point is achievable
-      constraints.push({
-        type: 'row',
-        index: intersectRow,
-        rule: {
-          shape: intersectShape,
-          count: 1,
-          operator: 'exactly'
-        }
+      // Add exact constraints for each shape type
+      const shapeCounts = this.generateBalancedShapeCounts(totalCells);
+      this.SHAPES.forEach((shape, index) => {
+        constraints.push({
+          type: 'global',
+          rule: {
+            shape,
+            count: shapeCounts[index],
+            operator: 'exactly'
+          }
+        });
       });
 
-      constraints.push({
-        type: 'column',
-        index: intersectCol,
-        rule: {
-          shape: intersectShape,
-          count: 1,
-          operator: 'exactly'
-        }
-      });
-
-      // Add a relative quantity constraint that's achievable
-      const shape1 = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
-      const shape2 = this.SHAPES.filter(s => s !== shape1)[0];
-      
-      // Make sure the counts are achievable
-      const maxShape1Count = Math.floor((width * height) / 4); // At most 1/4 of the grid
-      
-      constraints.push({
-        type: 'global',
-        rule: {
-          shape: shape1,
-          count: maxShape1Count,
-          operator: 'at_most'
-        }
-      });
-
-      constraints.push({
-        type: 'global',
-        rule: {
-          shape: shape2,
-          count: 1,
-          operator: 'at_least'
-        }
-      });
-
-      // Fill remaining constraints with simpler ones
+      // Add some row/column constraints
       while (constraints.length < numConstraints) {
         const constraint = this.generateRandomConstraint(width, height);
         if (this.isValidConstraint(constraint, constraints)) {
@@ -160,8 +132,24 @@ export class PuzzleGenerator {
   }
 
   /**
-   * Generate a random constraint
+   * Generate balanced counts for each shape type that sum to a portion of the total cells
    */
+  private static generateBalancedShapeCounts(totalCells: number): number[] {
+    const targetTotal = Math.floor(totalCells * 0.6); // Use 60% of cells for exact constraints
+    const counts = Array(this.SHAPES.length).fill(0);
+    let remaining = targetTotal;
+
+    // Distribute counts randomly but ensure they sum to targetTotal
+    for (let i = 0; i < counts.length - 1; i++) {
+      const max = Math.floor(remaining / (counts.length - i));
+      counts[i] = Math.floor(Math.random() * max) + 1;
+      remaining -= counts[i];
+    }
+    counts[counts.length - 1] = remaining;
+
+    return counts;
+  }
+
   private static generateRandomConstraint(width: number, height: number): ConstraintDefinition {
     const type = Math.random() < 0.5 ? 'row' : 'column';
     const index = Math.floor(Math.random() * (type === 'row' ? height : width));
@@ -198,11 +186,8 @@ export class PuzzleGenerator {
     };
   }
 
-  /**
-   * Check if a constraint is valid and doesn't conflict with existing constraints
-   */
   private static isValidConstraint(newConstraint: ConstraintDefinition, existingConstraints: ConstraintDefinition[]): boolean {
-    // Don't allow duplicate constraints on the same row/column
+    // Don't allow duplicate constraints on the same row/column/shape
     return !existingConstraints.some(constraint =>
       constraint.type === newConstraint.type &&
       constraint.index === newConstraint.index &&
@@ -210,17 +195,11 @@ export class PuzzleGenerator {
     );
   }
 
-  /**
-   * Get a random constraint operator
-   */
   private static getRandomOperator(): ConstraintDefinition['rule']['operator'] {
     const operators: ConstraintDefinition['rule']['operator'][] = ['exactly', 'at_least', 'at_most', 'none'];
     return operators[Math.floor(Math.random() * operators.length)];
   }
 
-  /**
-   * Get full configuration by merging provided config with defaults
-   */
   private static getFullConfig(partialConfig: Partial<PuzzleConfig>): Required<PuzzleConfig> {
     const difficulty = partialConfig.difficulty;
     if (!difficulty) {
