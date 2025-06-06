@@ -30,10 +30,10 @@ describe('PuzzleGenerator', () => {
   });
 
   it('should generate a hard puzzle correctly', () => {
-    const puzzle = PuzzleGenerator.generate({ difficulty: 'level3' });
+    const puzzle = PuzzleGenerator.generate({ difficulty: 'level5' });
     
-    expect(puzzle.initialBoard.length).toBe(3);
-    expect(puzzle.initialBoard[0].length).toBe(3);
+    expect(puzzle.initialBoard.length).toBe(4);
+    expect(puzzle.initialBoard[0].length).toBe(4);
     expect(puzzle.constraints.length).toBeGreaterThanOrEqual(4);
     expect(puzzle.constraints.length).toBeLessThanOrEqual(7);
   });
@@ -103,5 +103,36 @@ describe('PuzzleGenerator', () => {
 
     // At least 3 out of 5 puzzles should be solvable
     expect(solvablePuzzles).toBeGreaterThanOrEqual(3);
+  });
+
+  it('should not generate impossible constraint combinations', () => {
+    // Test multiple difficulties to ensure no impossible combinations
+    const difficulties = ['level1', 'level2', 'level3', 'level4', 'level5'] as const;
+    
+    difficulties.forEach(difficulty => {
+      for (let i = 0; i < 3; i++) {
+        const puzzle = PuzzleGenerator.generate({ difficulty });
+        
+        // Find the cat constraint
+        const catConstraint = puzzle.constraints.find(
+          c => c.type === 'global' && c.rule.shape === CatShape && c.rule.operator === 'exactly'
+        );
+        expect(catConstraint).toBeDefined();
+        
+        const requiredCats = catConstraint!.rule.count;
+        
+        // Check that no exact shape constraint requires fewer shapes than the number of cats
+        puzzle.constraints.forEach(constraint => {
+          if (constraint.type === 'global' && 
+              constraint.rule.shape !== CatShape && 
+              constraint.rule.operator === 'exactly') {
+            
+            // The exact count must be at least the number of required cats
+            // since cats count as all shapes
+            expect(constraint.rule.count).toBeGreaterThanOrEqual(requiredCats);
+          }
+        });
+      }
+    });
   });
 }); 

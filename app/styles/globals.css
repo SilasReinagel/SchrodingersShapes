@@ -19,58 +19,110 @@
   --panel-bg: #ffffff;
 }
 
-@layer base {
-  body {
-    margin: 0;
-    min-height: 100vh;
-    @apply bg-[var(--background)] text-[var(--text-primary)] antialiased;
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--background);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 
-    background-image: url('/art/bg1.jpg');
-    background-image: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url('/art/bg1.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+  background-image: url('/art/bg1.jpg');
+  background-image: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url('/art/bg1.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.nav-button {
+  padding: 1rem 1.5rem;
+  border-radius: 9999px;
+  background-color: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: all 0.2s;
+}
+
+.nav-button:hover {
+  background-color: var(--cell-hover);
+}
+
+.shape {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-secondary);
+}
+
+@media (min-width: 768px) {
+  .cat {
+    font-size: 2.25rem;
   }
 }
 
-@layer components {
-  .nav-button {
-    @apply px-4 py-2 rounded-full bg-white text-[var(--text-primary)] 
-           shadow-sm hover:bg-[var(--cell-hover)] transition-all duration-200;
-  }
+.floating-panel {
+  background-color: rgb(186 230 253);
+  border-radius: 2rem;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  border: 1px solid rgb(229 231 235 / 0.2);
+  backdrop-filter: blur(8px);
+}
 
-  .shape {
-    @apply w-full h-full flex items-center justify-center;
-  }
+.grid-cell {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 1px solid rgb(229 231 235 / 0.2);
+  min-width: 0;
+  min-height: 0;
+}
 
-  .cat {
-    @apply w-full h-full flex items-center justify-center 
-           text-2xl md:text-4xl font-bold text-[var(--text-secondary)];
-  }
+.grid-cell:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
 
-  .floating-panel {
-    @apply bg-sky-200 rounded-4xl shadow-xl
-           border border-gray-100/20 backdrop-blur-sm;
-  }
-
+@media (min-width: 768px) {
   .grid-cell {
-    @apply aspect-square bg-white rounded-2xl shadow-sm 
-           hover:shadow-md transition-all duration-200
-           flex items-center justify-center p-2 md:p-3
-           border border-gray-100/20;
-    min-width: 0;
-    min-height: 0;
+    padding: 0.75rem;
   }
+}
 
+.inner-panel {
+  background-color: rgb(249 250 251 / 0.8);
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px solid rgb(229 231 235 / 0.2);
+}
+
+@media (min-width: 768px) {
   .inner-panel {
-    @apply bg-gray-50/80 rounded-2xl p-4 md:p-6
-           border border-gray-100/20;
+    padding: 1.5rem;
   }
 }
 
 /* Background bubbles */
 .bubble-1 {
-  @apply fixed rounded-full blur-3xl opacity-20;
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.2;
   width: 300px;
   height: 300px;
   top: -50px;
@@ -79,7 +131,10 @@
 }
 
 .bubble-2 {
-  @apply fixed rounded-full blur-3xl opacity-20;
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.2;
   width: 400px;
   height: 400px;
   bottom: -100px;
@@ -88,7 +143,10 @@
 }
 
 .bubble-3 {
-  @apply fixed rounded-full blur-3xl opacity-20;
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.2;
   width: 250px;
   height: 250px;
   top: 40%;

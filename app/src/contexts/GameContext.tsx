@@ -40,7 +40,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPlaying, setIsPlaying] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>('level2');
-  const timerRef = useRef<{ getTime: () => string } | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [timer, setTimer] = useState('00:00');
   const [moveCount, setMoveCount] = useState(0);

@@ -56,23 +56,49 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   const height = grid.length;
   const width = grid[0].length;
 
+  // Calculate cell size based on screen size and grid dimensions
+  const getCellSize = () => {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Base cell sizes for different screen sizes
+    let baseCellSize: number;
+    if (viewportWidth < 640) { // mobile
+      baseCellSize = Math.min(80, (viewportWidth - 80) / Math.max(width, height));
+    } else if (viewportWidth < 1024) { // tablet
+      baseCellSize = Math.min(100, (viewportWidth - 200) / Math.max(width, height));
+    } else { // desktop
+      baseCellSize = Math.min(120, (viewportHeight - 200) / Math.max(width, height));
+    }
+    
+    return Math.max(60, baseCellSize); // Minimum cell size of 60px
+  };
+
+  const cellSize = getCellSize();
+  const gap = Math.max(8, cellSize * 0.1); // Gap proportional to cell size, minimum 8px
+
   return (
     <motion.div
       ref={gridRef}
-      className="floating-panel w-full h-full relative flex items-center justify-center"
+      className="floating-panel relative flex items-center justify-center p-4 sm:p-6"
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
+      style={{
+        width: 'fit-content',
+        height: 'fit-content',
+        maxWidth: '100%',
+        maxHeight: '100%'
+      }}
     >
       <div 
-        className="grid gap-2 md:gap-3"
+        className="grid"
         style={{ 
-          gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${height}, minmax(0, 1fr))`,
-          aspectRatio: `${width} / ${height}`,
-          width: '100%',
-          height: 'auto',
-          padding: '1rem'
+          gridTemplateColumns: `repeat(${width}, ${cellSize}px)`,
+          gridTemplateRows: `repeat(${height}, ${cellSize}px)`,
+          gap: `${gap}px`,
+          width: 'fit-content',
+          height: 'fit-content'
         }}
       >
         {grid.map((row, rowIndex) => (
@@ -80,6 +106,10 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
             <motion.div
               key={`${rowIndex}-${colIndex}`}
               className={`grid-cell ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
+              style={{ 
+                width: `${cellSize}px`, 
+                height: `${cellSize}px` 
+              }}
               whileHover={cell.shape === 0 && !cell.locked ? { scale: 1.02 } : undefined}
               whileTap={cell.shape === 0 && !cell.locked ? { scale: 0.98 } : undefined}
               onClick={(e) => handleCellClick(rowIndex, colIndex, e)}

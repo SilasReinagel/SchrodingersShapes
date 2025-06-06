@@ -8,7 +8,7 @@ export const Timer = forwardRef<{ getTime: () => string }, TimerProps>(({ isPlay
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
-    let interval: number | undefined;
+    let interval: NodeJS.Timeout | null = null;
     
     if (isPlaying) {
       interval = setInterval(() => {

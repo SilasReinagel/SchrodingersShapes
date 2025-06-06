@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { TopBar } from '../components/TopBar';
-import { BottomBar } from '../components/BottomBar';
 import { CatShape } from '../game/types';
 import { Shape } from '../components/shapes/Shape';
 

@@ -14,16 +14,14 @@ Todo List:
 ✓ - Optimize Puzzle Solver Performance
 ✓  - Buy Domain Name
 ✓  - The Puzzle Won modal is not showing up as a modal (it's at the bottom of the page)
-
-- Should make a Main Menu with a cool big Cat animation
-- We don't have game instructions. should show these when moving from the main menu to the game
-- Should also have an info icon to show the instructions
-- When the puzzle is won, we should lock it, and all the shapes in the puzzle should animate with some continuous animation that's very juicy, and maye emit sparkles continually from the game board
-- After we generate a puzzle, verify that it's solvable, before giving to the player to start
-- Add background music with Howler.js
+✓ - Should make a Main Menu with a cool big Cat animation
+✓ - We don't have game instructions. should show these when moving from the main menu to the game
+✓ - Should also have an info icon to show the instructions
+✓ - When the puzzle is won, we should lock it, and all the shapes in the puzzle should animate with some continuous animation that's very juicy, and maye emit sparkles continually from the game board
+✓ - After we generate a puzzle, verify that it's solvable, before giving to the player to start
+✓ - Add background music with Howler.js
 
 - Deploy Skeleton Site
-- Coming Soon Page
 - Initial Art Pass
 - Add Tutorial Levels
 - Implement Save/Load Functionality

@@ -52,7 +52,9 @@ export class PuzzleGenerator {
     if (config.difficulty === 'level1') {
       // Easy level: Simple counting constraints and one global exact constraint
       const globalShape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
-      const globalCount = Math.floor(totalCells / 3); // Use about 1/3 of the board
+      const minCount = config.requiredSuperpositions; // Must be at least the number of cats
+      const maxCount = Math.floor(totalCells / 2); // Use at most half the board
+      const globalCount = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
 
       constraints.push({
         type: 'global',
@@ -74,9 +76,11 @@ export class PuzzleGenerator {
       const shape1 = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
       const shape2 = this.SHAPES.filter(s => s !== shape1)[Math.floor(Math.random() * (this.SHAPES.length - 1))];
       
-      // Add two global constraints that seem contradictory but can be solved with cats
-      const count1 = Math.floor(totalCells / 3);
-      const count2 = Math.floor(totalCells / 3);
+      // Ensure counts are at least the number of required cats (since cats count as all shapes)
+      const minCount = config.requiredSuperpositions;
+      const maxCount = Math.floor(totalCells / 2);
+      const count1 = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
+      const count2 = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
       
       constraints.push({
         type: 'global',
@@ -104,20 +108,27 @@ export class PuzzleGenerator {
         }
       }
     } else {
-      // Hard levels: Mix of global exact constraints and relative constraints
+      // Hard levels: Use at_least/at_most constraints instead of exact constraints for shapes
+      // This prevents impossible combinations with exact cat requirements
       
-      // Add exact constraints for each shape type
-      const shapeCounts = this.generateBalancedShapeCounts(totalCells);
-      this.SHAPES.forEach((shape, index) => {
+      // Add some global at_least constraints that work with cats
+      const numGlobalConstraints = Math.min(2, this.SHAPES.length);
+      const shuffledShapes = [...this.SHAPES].sort(() => Math.random() - 0.5);
+      
+      for (let i = 0; i < numGlobalConstraints; i++) {
+        const shape = shuffledShapes[i];
+        const minCount = config.requiredSuperpositions; // At least the number of cats
+        const count = Math.max(minCount, Math.floor(totalCells / 4) + 1);
+        
         constraints.push({
           type: 'global',
           rule: {
             shape,
-            count: shapeCounts[index],
-            operator: 'exactly'
+            count,
+            operator: 'at_least'
           }
         });
-      });
+      }
 
       // Add some row/column constraints
       while (constraints.length < numConstraints) {
@@ -129,25 +140,6 @@ export class PuzzleGenerator {
     }
 
     return constraints;
-  }
-
-  /**
-   * Generate balanced counts for each shape type that sum to a portion of the total cells
-   */
-  private static generateBalancedShapeCounts(totalCells: number): number[] {
-    const targetTotal = Math.floor(totalCells * 0.6); // Use 60% of cells for exact constraints
-    const counts = Array(this.SHAPES.length).fill(0);
-    let remaining = targetTotal;
-
-    // Distribute counts randomly but ensure they sum to targetTotal
-    for (let i = 0; i < counts.length - 1; i++) {
-      const max = Math.floor(remaining / (counts.length - i));
-      counts[i] = Math.floor(Math.random() * max) + 1;
-      remaining -= counts[i];
-    }
-    counts[counts.length - 1] = remaining;
-
-    return counts;
   }
 
   private static generateRandomConstraint(width: number, height: number): ConstraintDefinition {
