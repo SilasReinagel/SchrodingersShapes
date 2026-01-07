@@ -1,5 +1,5 @@
 import { CurrentPuzzle } from './CurrentPuzzle';
-import { PuzzleDefinition, ShapeId, SquareShape, CircleShape, TriangleShape, CatShape, GameBoard, ConstraintDefinition } from './types';
+import { PuzzleDefinition, ShapeId, SquareShape, CircleShape, TriangleShape, CatShape, GameBoard, ConstraintDefinition, isCountConstraint, isCellConstraint } from './types';
 
 export class PuzzleSolver {
   private static readonly SHAPES: ShapeId[] = [CatShape, SquareShape, CircleShape, TriangleShape];
@@ -16,7 +16,7 @@ export class PuzzleSolver {
   // Optimizations
   private findFirstOnly: boolean = false;
   private maxCacheSize: number = 50000;
-  private stateCache: Map<string, boolean> = new Map(); // Simplified: just track if explored
+  private stateCache: Map<string, boolean> = new Map();
   
   constructor(puzzleDef: PuzzleDefinition) {
     this.puzzle = new CurrentPuzzle(puzzleDef);
@@ -74,47 +74,61 @@ export class PuzzleSolver {
   }
   
   /**
-   * Check if any non-cat constraint is definitely violated
+   * Check if any constraint is definitely violated
    */
   private hasViolatedConstraint(): boolean {
     const board = this.puzzle.currentBoard;
     const constraints = this.puzzle.definition.constraints;
     
     for (const constraint of constraints) {
-      // Skip cat constraints for early pruning
-      if (constraint.rule.shape === CatShape) continue;
-      
-      const { type, rule } = constraint;
-      const { shape, count, operator } = rule;
-      
-      // Count only committed (non-cat) shapes
-      let committedCount = 0;
-      
-      if (type === 'global') {
-        for (const row of board) {
-          for (const cell of row) {
-            if (cell.shape === shape) committedCount++;
-          }
-        }
-      } else {
-        const index = constraint.index ?? 0;
-        if (type === 'row') {
-          for (const cell of board[index]) {
-            if (cell.shape === shape) committedCount++;
+      if (isCountConstraint(constraint)) {
+        // Skip cat count constraints for early pruning (start with all cats)
+        if (constraint.rule.shape === CatShape) continue;
+        
+        const { type, rule } = constraint;
+        const { shape, count, operator } = rule;
+        
+        // Count only committed (non-cat) shapes
+        let committedCount = 0;
+        
+        if (type === 'global') {
+          for (const row of board) {
+            for (const cell of row) {
+              if (cell.shape === shape) committedCount++;
+            }
           }
         } else {
-          for (const row of board) {
-            if (row[index].shape === shape) committedCount++;
+          const index = constraint.index ?? 0;
+          if (type === 'row') {
+            for (const cell of board[index]) {
+              if (cell.shape === shape) committedCount++;
+            }
+          } else {
+            for (const row of board) {
+              if (row[index].shape === shape) committedCount++;
+            }
           }
         }
-      }
-      
-      // Check for violations
-      if ((operator === 'exactly' || operator === 'at_most') && committedCount > count) {
-        return true;
-      }
-      if (operator === 'none' && committedCount > 0) {
-        return true;
+        
+        // Check for violations
+        if ((operator === 'exactly' || operator === 'at_most') && committedCount > count) {
+          return true;
+        }
+        if (operator === 'none' && committedCount > 0) {
+          return true;
+        }
+      } else if (isCellConstraint(constraint)) {
+        const { x, y, rule } = constraint;
+        const cell = board[y][x];
+        const { shape, operator } = rule;
+        
+        if (operator === 'is_not') {
+          // "Cell is not X" - violated if cell IS X (and not Cat)
+          if (cell.shape === shape && cell.shape !== CatShape) {
+            return true;
+          }
+        }
+        // 'is' constraints can't be violated early (Cat satisfies any 'is')
       }
     }
     return false;
@@ -158,11 +172,10 @@ export class PuzzleSolver {
     }
     
     // Cache states that we've proven to have no solution
-    // This is safe because if state X leads to no solution, it never will
     const stateKey = this.getBoardStateKey();
     if (this.stateCache.has(stateKey)) {
       this.deadEnds++;
-      return false; // Already proven this state has no solution
+      return false;
     }
     
     // Calculate next position
@@ -183,14 +196,13 @@ export class PuzzleSolver {
     
     // Order shapes: current shape first (no move), then non-cats (faster pruning), then cat
     const shapesToTry: ShapeId[] = [];
-    shapesToTry.push(currentShape); // Try keeping current shape first
+    shapesToTry.push(currentShape);
     for (const s of [SquareShape, CircleShape, TriangleShape]) {
       if (s !== currentShape) shapesToTry.push(s);
     }
     if (CatShape !== currentShape) shapesToTry.push(CatShape);
     
     for (const shape of shapesToTry) {
-      // Early exit if we found a solution and only need one
       if (this.findFirstOnly && this.isSolvable) {
         return true;
       }
@@ -219,7 +231,7 @@ export class PuzzleSolver {
       }
     }
     
-    // Cache negative results only (proven dead ends)
+    // Cache negative results only
     if (!foundSolution && this.stateCache.size < this.maxCacheSize) {
       this.stateCache.set(stateKey, true);
     }

@@ -15,7 +15,14 @@ export type GameBoard = Cell[][];
 
 export type Difficulty = 'level1' | 'level2' | 'level3' | 'level4' | 'level5';
 
-export type ConstraintDefinition = {
+/**
+ * Count-based constraint (row, column, or global)
+ * Examples:
+ * - "Row 0: exactly 2 circles"
+ * - "Global: at least 1 cat"
+ * - "Column 2: no triangles"
+ */
+export type CountConstraint = {
   type: 'row' | 'column' | 'global';
   index?: number;
   rule: {
@@ -25,14 +32,51 @@ export type ConstraintDefinition = {
   };
 };
 
+/**
+ * Cell-level constraint (is or is_not)
+ * Examples:
+ * - "Cell (1,2) is a Circle"
+ * - "Cell (0,0) is not a Triangle"
+ * 
+ * Note: For 'is' constraints, Cat counts as matching any shape (superposition)
+ * For 'is_not' constraints, Cat does NOT match (it could still become that shape)
+ */
+export type CellConstraint = {
+  type: 'cell';
+  x: number;
+  y: number;
+  rule: {
+    shape: ShapeId;
+    operator: 'is' | 'is_not';
+  };
+};
+
+/**
+ * Union of all constraint types
+ */
+export type ConstraintDefinition = CountConstraint | CellConstraint;
+
+/**
+ * Type guard for count constraints
+ */
+export const isCountConstraint = (c: ConstraintDefinition): c is CountConstraint => {
+  return c.type === 'row' || c.type === 'column' || c.type === 'global';
+};
+
+/**
+ * Type guard for cell constraints
+ */
+export const isCellConstraint = (c: ConstraintDefinition): c is CellConstraint => {
+  return c.type === 'cell';
+};
 
 export type PuzzleConfig = {
-  width: number; // Grid width (e.g., 2 for 2x2, 3 for 3x3)
-  height: number; // Grid height (e.g., 2 for 2x2, 3 for 3x3)
+  width: number;
+  height: number;
   difficulty: Difficulty;
-  minConstraints?: number; // Minimum number of constraints
-  maxConstraints?: number; // Maximum number of constraints
-  requiredSuperpositions?: number; // Number of cells that must remain in superposition
+  minConstraints?: number;
+  maxConstraints?: number;
+  requiredSuperpositions?: number;
 };
 
 export type PuzzleDefinition = {

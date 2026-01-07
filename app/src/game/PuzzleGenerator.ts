@@ -1,16 +1,30 @@
 import { DIFFICULTY_SETTINGS } from './DifficultySettings';
-import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, CatShape, SquareShape, CircleShape, TriangleShape } from './types';
+import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, CatShape, SquareShape, CircleShape, TriangleShape, CountConstraint, CellConstraint, isCountConstraint, isCellConstraint } from './types';
 import { SeededRNG } from './SeededRNG';
 
 /**
- * Represents a fact extracted from a solution board
+ * Represents a count-based fact extracted from a solution board
  */
-type Fact = {
+type CountFact = {
+  factType: 'count';
   type: 'global' | 'row' | 'column';
   index?: number;
   shape: ShapeId;
   count: number;
 };
+
+/**
+ * Represents a cell-level fact extracted from a solution board
+ */
+type CellFact = {
+  factType: 'cell';
+  x: number;
+  y: number;
+  shape: ShapeId;
+  isShape: boolean; // true = cell IS this shape, false = cell is NOT this shape
+};
+
+type Fact = CountFact | CellFact;
 
 /**
  * Solution-First Puzzle Generator
@@ -41,7 +55,7 @@ export class PuzzleGenerator {
     const facts = this.extractFacts(solutionBoard, fullConfig);
     
     // Select constraints from facts based on difficulty
-    const constraints = this.selectConstraints(facts, fullConfig, rng);
+    const constraints = this.selectConstraints(facts, solutionBoard, fullConfig, rng);
     
     // Create the initial board (all cats)
     const initialBoard = this.initializeGrid(fullConfig.width, fullConfig.height);
@@ -71,10 +85,10 @@ export class PuzzleGenerator {
     // Shuffle positions to randomly place cats
     const shuffledPositions = this.shuffleArray(positions, rng);
     
-    // Initialize board with all cells as undefined shapes
+    // Initialize board
     const board: GameBoard = Array(height).fill(null).map(() =>
       Array(width).fill(null).map(() => ({
-        shape: SquareShape as ShapeId, // Placeholder, will be overwritten
+        shape: SquareShape as ShapeId,
         locked: false
       }))
     );
@@ -97,27 +111,29 @@ export class PuzzleGenerator {
 
   /**
    * Extracts all facts from a solution board
-   * Facts are true statements about shape counts in the solution
+   * Includes both count facts and cell facts
    */
   private static extractFacts(board: GameBoard, config: Required<PuzzleConfig>): Fact[] {
     const facts: Fact[] = [];
     const { width, height } = config;
     
-    // Extract global facts for each shape
+    // Extract global count facts for each shape
     for (const shape of this.ALL_SHAPES) {
       const count = this.countShapeInBoard(board, shape);
       facts.push({
+        factType: 'count',
         type: 'global',
         shape,
         count
       });
     }
     
-    // Extract row facts
+    // Extract row count facts
     for (let rowIndex = 0; rowIndex < height; rowIndex++) {
       for (const shape of this.ALL_SHAPES) {
         const count = this.countShapeInRow(board, rowIndex, shape);
         facts.push({
+          factType: 'count',
           type: 'row',
           index: rowIndex,
           shape,
@@ -126,16 +142,48 @@ export class PuzzleGenerator {
       }
     }
     
-    // Extract column facts
+    // Extract column count facts
     for (let colIndex = 0; colIndex < width; colIndex++) {
       for (const shape of this.ALL_SHAPES) {
         const count = this.countShapeInColumn(board, colIndex, shape);
         facts.push({
+          factType: 'count',
           type: 'column',
           index: colIndex,
           shape,
           count
         });
+      }
+    }
+    
+    // Extract cell facts (what shape is in each cell, and what shapes are NOT)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const cellShape = board[y][x].shape;
+        
+        // Fact: this cell IS this shape
+        facts.push({
+          factType: 'cell',
+          x,
+          y,
+          shape: cellShape,
+          isShape: true
+        });
+        
+        // Facts: this cell is NOT these other shapes (for non-cat cells)
+        if (cellShape !== CatShape) {
+          for (const shape of this.ALL_SHAPES) {
+            if (shape !== cellShape) {
+              facts.push({
+                factType: 'cell',
+                x,
+                y,
+                shape,
+                isShape: false
+              });
+            }
+          }
+        }
       }
     }
     
@@ -147,6 +195,7 @@ export class PuzzleGenerator {
    */
   private static selectConstraints(
     facts: Fact[], 
+    _solutionBoard: GameBoard,
     config: Required<PuzzleConfig>, 
     rng: SeededRNG
   ): ConstraintDefinition[] {
@@ -154,15 +203,21 @@ export class PuzzleGenerator {
     const numConstraints = rng.nextIntRange(config.minConstraints, config.maxConstraints);
     
     // Always add the cat (superposition) constraint first
-    const catFact = facts.find(f => f.type === 'global' && f.shape === CatShape);
+    const catFact = facts.find(f => 
+      f.factType === 'count' && f.type === 'global' && f.shape === CatShape
+    ) as CountFact | undefined;
+    
     if (catFact) {
-      constraints.push(this.factToConstraint(catFact, 'exactly'));
+      constraints.push(this.countFactToConstraint(catFact, 'exactly'));
     }
     
     // Get candidate facts (excluding cat global fact since we already added it)
-    const candidateFacts = facts.filter(f => 
-      !(f.type === 'global' && f.shape === CatShape)
-    );
+    const candidateFacts = facts.filter(f => {
+      if (f.factType === 'count') {
+        return !(f.type === 'global' && f.shape === CatShape);
+      }
+      return true;
+    });
     
     // Shuffle candidates
     const shuffledFacts = this.shuffleArray([...candidateFacts], rng);
@@ -173,17 +228,17 @@ export class PuzzleGenerator {
     for (const fact of shuffledFacts) {
       if (constraints.length >= numConstraints) break;
       
-      // Check if we already have a constraint for this type/index/shape
+      // Check if we already have a conflicting constraint
       if (this.hasConflictingConstraint(fact, constraints)) continue;
       
       // Skip facts that aren't interesting based on strategy
       if (!this.isInterestingFact(fact, config, strategy)) continue;
       
-      // Convert fact to constraint with appropriate operator
-      const operator = this.selectOperator(fact, config, strategy, rng);
-      const constraint = this.factToConstraint(fact, operator);
-      
-      constraints.push(constraint);
+      // Convert fact to constraint
+      const constraint = this.factToConstraint(fact, strategy, rng);
+      if (constraint) {
+        constraints.push(constraint);
+      }
     }
     
     // If we still need more constraints, be less picky
@@ -192,12 +247,10 @@ export class PuzzleGenerator {
         if (constraints.length >= numConstraints) break;
         if (this.hasConflictingConstraint(fact, constraints)) continue;
         
-        // Don't add boring constraints (count of 0 with 'exactly' or cat facts for row/column)
-        if (fact.shape === CatShape && fact.type !== 'global') continue;
-        if (fact.count === 0 && fact.type === 'global') continue;
-        
-        const operator = this.selectOperator(fact, config, { preferExact: false }, rng);
-        constraints.push(this.factToConstraint(fact, operator));
+        const constraint = this.factToConstraint(fact, { preferExact: false, allowNone: true, mixOperators: false, allowCellConstraints: true }, rng);
+        if (constraint) {
+          constraints.push(constraint);
+        }
       }
     }
     
@@ -205,12 +258,12 @@ export class PuzzleGenerator {
   }
 
   /**
-   * Converts a fact to a constraint with the given operator
+   * Converts a count fact to a count constraint
    */
-  private static factToConstraint(
-    fact: Fact, 
-    operator: ConstraintDefinition['rule']['operator']
-  ): ConstraintDefinition {
+  private static countFactToConstraint(
+    fact: CountFact, 
+    operator: CountConstraint['rule']['operator']
+  ): CountConstraint {
     return {
       type: fact.type,
       index: fact.index,
@@ -223,20 +276,69 @@ export class PuzzleGenerator {
   }
 
   /**
+   * Converts a cell fact to a cell constraint
+   */
+  private static cellFactToConstraint(fact: CellFact): CellConstraint {
+    return {
+      type: 'cell',
+      x: fact.x,
+      y: fact.y,
+      rule: {
+        shape: fact.shape,
+        operator: fact.isShape ? 'is' : 'is_not'
+      }
+    };
+  }
+
+  /**
+   * Converts any fact to a constraint
+   */
+  private static factToConstraint(
+    fact: Fact,
+    strategy: { preferExact?: boolean; mixOperators?: boolean; allowNone?: boolean; allowCellConstraints?: boolean },
+    rng: SeededRNG
+  ): ConstraintDefinition | null {
+    if (fact.factType === 'cell') {
+      // Only include cell constraints if strategy allows
+      if (!strategy.allowCellConstraints) return null;
+      
+      // Skip 'is Cat' constraints (too specific, gives away superposition locations)
+      if (fact.isShape && fact.shape === CatShape) return null;
+      
+      return this.cellFactToConstraint(fact);
+    } else {
+      // Count fact
+      // Don't add boring count=0 global constraints
+      if (fact.count === 0 && fact.type === 'global') return null;
+      
+      // Don't add cat facts for row/column
+      if (fact.shape === CatShape && fact.type !== 'global') return null;
+      
+      const operator = this.selectOperator(fact, strategy, rng);
+      return this.countFactToConstraint(fact, operator);
+    }
+  }
+
+  /**
    * Gets the constraint selection strategy based on difficulty
    */
-  private static getConstraintStrategy(difficulty: string): { preferExact: boolean; allowNone: boolean; mixOperators: boolean } {
+  private static getConstraintStrategy(difficulty: string): { 
+    preferExact: boolean; 
+    allowNone: boolean; 
+    mixOperators: boolean;
+    allowCellConstraints: boolean;
+  } {
     switch (difficulty) {
       case 'level1':
-        return { preferExact: true, allowNone: false, mixOperators: false };
+        return { preferExact: true, allowNone: false, mixOperators: false, allowCellConstraints: false };
       case 'level2':
-        return { preferExact: true, allowNone: true, mixOperators: false };
+        return { preferExact: true, allowNone: true, mixOperators: false, allowCellConstraints: false };
       case 'level3':
-        return { preferExact: true, allowNone: true, mixOperators: true };
+        return { preferExact: true, allowNone: true, mixOperators: true, allowCellConstraints: true };
       case 'level4':
       case 'level5':
       default:
-        return { preferExact: false, allowNone: true, mixOperators: true };
+        return { preferExact: false, allowNone: true, mixOperators: true, allowCellConstraints: true };
     }
   }
 
@@ -246,8 +348,20 @@ export class PuzzleGenerator {
   private static isInterestingFact(
     fact: Fact, 
     config: Required<PuzzleConfig>,
-    strategy: { preferExact: boolean; allowNone: boolean }
+    strategy: { preferExact: boolean; allowNone: boolean; allowCellConstraints?: boolean }
   ): boolean {
+    if (fact.factType === 'cell') {
+      if (!strategy.allowCellConstraints) return false;
+      
+      // 'is Cat' facts are not interesting (gives away superposition)
+      if (fact.isShape && fact.shape === CatShape) return false;
+      
+      // 'is not Cat' facts are useful for forcing collapse
+      // Other 'is_not' facts enable deduction
+      return true;
+    }
+    
+    // Count facts
     // Skip cat facts for row/column (cats are handled globally)
     if (fact.shape === CatShape && fact.type !== 'global') {
       return false;
@@ -269,14 +383,13 @@ export class PuzzleGenerator {
   }
 
   /**
-   * Selects an operator for a constraint based on the fact and strategy
+   * Selects an operator for a count constraint
    */
   private static selectOperator(
-    fact: Fact,
-    _config: Required<PuzzleConfig>,
+    fact: CountFact,
     strategy: { preferExact?: boolean; mixOperators?: boolean },
     rng: SeededRNG
-  ): ConstraintDefinition['rule']['operator'] {
+  ): CountConstraint['rule']['operator'] {
     // Count of 0 should be "none"
     if (fact.count === 0) {
       return 'none';
@@ -306,11 +419,20 @@ export class PuzzleGenerator {
    * Checks if adding a constraint would conflict with existing ones
    */
   private static hasConflictingConstraint(fact: Fact, constraints: ConstraintDefinition[]): boolean {
-    return constraints.some(c => 
-      c.type === fact.type && 
-      c.index === fact.index && 
-      c.rule.shape === fact.shape
-    );
+    if (fact.factType === 'cell') {
+      // Check for existing cell constraint on same cell
+      return constraints.some(c => 
+        isCellConstraint(c) && c.x === fact.x && c.y === fact.y && c.rule.shape === fact.shape
+      );
+    } else {
+      // Check for existing count constraint on same scope/index/shape
+      return constraints.some(c => 
+        isCountConstraint(c) && 
+        c.type === fact.type && 
+        c.index === fact.index && 
+        c.rule.shape === fact.shape
+      );
+    }
   }
 
   /**
@@ -321,7 +443,6 @@ export class PuzzleGenerator {
     let count = 0;
     for (const row of board) {
       for (const cell of row) {
-        // Cat cells count toward all non-cat shapes
         if (cell.shape === shape || (shape !== CatShape && cell.shape === CatShape)) {
           count++;
         }
@@ -332,12 +453,10 @@ export class PuzzleGenerator {
 
   /**
    * Counts a specific shape in a row
-   * Uses game semantics: Cats count toward ALL shapes (except when counting cats themselves)
    */
   private static countShapeInRow(board: GameBoard, rowIndex: number, shape: ShapeId): number {
     let count = 0;
     for (const cell of board[rowIndex]) {
-      // Cat cells count toward all non-cat shapes
       if (cell.shape === shape || (shape !== CatShape && cell.shape === CatShape)) {
         count++;
       }
@@ -347,12 +466,10 @@ export class PuzzleGenerator {
 
   /**
    * Counts a specific shape in a column
-   * Uses game semantics: Cats count toward ALL shapes (except when counting cats themselves)
    */
   private static countShapeInColumn(board: GameBoard, colIndex: number, shape: ShapeId): number {
     let count = 0;
     for (const row of board) {
-      // Cat cells count toward all non-cat shapes
       if (row[colIndex].shape === shape || (shape !== CatShape && row[colIndex].shape === CatShape)) {
         count++;
       }
