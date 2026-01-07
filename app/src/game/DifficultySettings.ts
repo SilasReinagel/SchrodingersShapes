@@ -5,7 +5,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     width: 2,
     height: 2,
     difficulty: 'level1',
-    minConstraints: 2,
+    minConstraints: 3,
     maxConstraints: 3,
     requiredSuperpositions: 1
   },
@@ -13,7 +13,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     width: 3,
     height: 2,
     difficulty: 'level2',
-    minConstraints: 2,
+    minConstraints: 4,
     maxConstraints: 4,
     requiredSuperpositions: 1
   },
@@ -21,7 +21,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     width: 3,
     height: 3,
     difficulty: 'level3',
-    minConstraints: 3,
+    minConstraints: 5,
     maxConstraints: 5,
     requiredSuperpositions: 2
   },
@@ -29,7 +29,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     width: 4,
     height: 3,
     difficulty: 'level4',
-    minConstraints: 3,
+    minConstraints: 6,
     maxConstraints: 6,
     requiredSuperpositions: 2
   },
@@ -37,7 +37,7 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     width: 4,
     height: 4,
     difficulty: 'level5',
-    minConstraints: 4,
+    minConstraints: 7,
     maxConstraints: 7,
     requiredSuperpositions: 3
   }
