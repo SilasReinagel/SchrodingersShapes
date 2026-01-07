@@ -1,16 +1,22 @@
 import { DIFFICULTY_SETTINGS } from './DifficultySettings';
 import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, CatShape, SquareShape, CircleShape, TriangleShape } from './types';
+import { SeededRNG } from './SeededRNG';
 
 export class PuzzleGenerator {
   private static readonly SHAPES: ShapeId[] = [SquareShape, CircleShape, TriangleShape];
   
-  public static generate(config: Partial<PuzzleConfig> = {}): PuzzleDefinition {
+  public static generate(config: Partial<PuzzleConfig> = {}, seed?: number | string): PuzzleDefinition {
     const fullConfig = this.getFullConfig(config);
+    
+    // Create seeded RNG - use provided seed or generate random seed
+    const rngSeed = seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
+    const rng = new SeededRNG(rngSeed);
+    
     const initialBoard = this.initializeGrid(
       fullConfig.width, 
       fullConfig.height
     );
-    const constraints = this.generateConstraints(fullConfig);
+    const constraints = this.generateConstraints(fullConfig, rng);
     
     return {
       initialBoard,
@@ -27,10 +33,11 @@ export class PuzzleGenerator {
     );
   }
 
-  private static generateConstraints(config: Required<PuzzleConfig>): ConstraintDefinition[] {
+  private static generateConstraints(config: Required<PuzzleConfig>, rng: SeededRNG): ConstraintDefinition[] {
     const constraints: ConstraintDefinition[] = [];
-    const numConstraints = Math.floor(
-      Math.random() * (config.maxConstraints - config.minConstraints + 1) + config.minConstraints
+    const numConstraints = rng.nextIntRange(
+      config.minConstraints,
+      config.maxConstraints
     );
 
     // Always add the required superpositions constraint
@@ -51,10 +58,10 @@ export class PuzzleGenerator {
     // Based on difficulty, add different types of clever constraints
     if (config.difficulty === 'level1') {
       // Easy level: Simple counting constraints and one global exact constraint
-      const globalShape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
+      const globalShape = this.SHAPES[rng.nextInt(this.SHAPES.length)];
       const minCount = config.requiredSuperpositions; // Must be at least the number of cats
       const maxCount = Math.floor(totalCells / 2); // Use at most half the board
-      const globalCount = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
+      const globalCount = Math.max(minCount, rng.nextIntRange(minCount, maxCount));
 
       constraints.push({
         type: 'global',
@@ -66,21 +73,22 @@ export class PuzzleGenerator {
       });
 
       while (constraints.length < numConstraints) {
-        const constraint = this.generateRandomConstraint(width, height);
+        const constraint = this.generateRandomConstraint(width, height, rng);
         if (this.isValidConstraint(constraint, constraints)) {
           constraints.push(constraint);
         }
       }
     } else if (config.difficulty === 'level2' || config.difficulty === 'level3') {
       // Medium levels: Add complementary global constraints
-      const shape1 = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
-      const shape2 = this.SHAPES.filter(s => s !== shape1)[Math.floor(Math.random() * (this.SHAPES.length - 1))];
+      const shape1 = this.SHAPES[rng.nextInt(this.SHAPES.length)];
+      const remainingShapes = this.SHAPES.filter(s => s !== shape1);
+      const shape2 = remainingShapes[rng.nextInt(remainingShapes.length)];
       
       // Ensure counts are at least the number of required cats (since cats count as all shapes)
       const minCount = config.requiredSuperpositions;
       const maxCount = Math.floor(totalCells / 2);
-      const count1 = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
-      const count2 = Math.max(minCount, Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount);
+      const count1 = Math.max(minCount, rng.nextIntRange(minCount, maxCount));
+      const count2 = Math.max(minCount, rng.nextIntRange(minCount, maxCount));
       
       constraints.push({
         type: 'global',
@@ -102,7 +110,7 @@ export class PuzzleGenerator {
 
       // Add some row/column constraints
       while (constraints.length < numConstraints) {
-        const constraint = this.generateRandomConstraint(width, height);
+        const constraint = this.generateRandomConstraint(width, height, rng);
         if (this.isValidConstraint(constraint, constraints)) {
           constraints.push(constraint);
         }
@@ -113,7 +121,7 @@ export class PuzzleGenerator {
       
       // Add some global at_least constraints that work with cats
       const numGlobalConstraints = Math.min(2, this.SHAPES.length);
-      const shuffledShapes = [...this.SHAPES].sort(() => Math.random() - 0.5);
+      const shuffledShapes = this.shuffleArray([...this.SHAPES], rng);
       
       for (let i = 0; i < numGlobalConstraints; i++) {
         const shape = shuffledShapes[i];
@@ -132,7 +140,7 @@ export class PuzzleGenerator {
 
       // Add some row/column constraints
       while (constraints.length < numConstraints) {
-        const constraint = this.generateRandomConstraint(width, height);
+        const constraint = this.generateRandomConstraint(width, height, rng);
         if (this.isValidConstraint(constraint, constraints)) {
           constraints.push(constraint);
         }
@@ -142,11 +150,11 @@ export class PuzzleGenerator {
     return constraints;
   }
 
-  private static generateRandomConstraint(width: number, height: number): ConstraintDefinition {
-    const type = Math.random() < 0.5 ? 'row' : 'column';
-    const index = Math.floor(Math.random() * (type === 'row' ? height : width));
-    const shape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
-    const operator = this.getRandomOperator();
+  private static generateRandomConstraint(width: number, height: number, rng: SeededRNG): ConstraintDefinition {
+    const type = rng.random() < 0.5 ? 'row' : 'column';
+    const index = rng.nextInt(type === 'row' ? height : width);
+    const shape = this.SHAPES[rng.nextInt(this.SHAPES.length)];
+    const operator = this.getRandomOperator(rng);
     
     // Get the size of the dimension we're constraining
     const dimensionSize = type === 'row' ? width : height;
@@ -156,7 +164,7 @@ export class PuzzleGenerator {
     if (operator === 'at_most') {
       // For "at most", ensure count is achievable
       const maxCount = Math.min(Math.floor(dimensionSize / 2), 2);
-      count = maxCount > 0 ? Math.floor(Math.random() * maxCount) + 1 : 1;
+      count = maxCount > 0 ? rng.nextIntRange(1, maxCount) : 1;
     } else if (operator === 'at_least') {
       // For "at least", ensure count is reasonable
       count = 1; // Start with just requiring 1 to make it more likely to be solvable
@@ -187,9 +195,21 @@ export class PuzzleGenerator {
     );
   }
 
-  private static getRandomOperator(): ConstraintDefinition['rule']['operator'] {
+  private static getRandomOperator(rng: SeededRNG): ConstraintDefinition['rule']['operator'] {
     const operators: ConstraintDefinition['rule']['operator'][] = ['exactly', 'at_least', 'at_most', 'none'];
-    return operators[Math.floor(Math.random() * operators.length)];
+    return operators[rng.nextInt(operators.length)];
+  }
+
+  /**
+   * Shuffles an array using Fisher-Yates algorithm with seeded RNG
+   */
+  private static shuffleArray<T>(array: T[], rng: SeededRNG): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = rng.nextInt(i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
   }
 
   private static getFullConfig(partialConfig: Partial<PuzzleConfig>): Required<PuzzleConfig> {
