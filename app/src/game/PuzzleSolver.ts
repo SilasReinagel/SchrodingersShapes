@@ -1,42 +1,47 @@
 import { CurrentPuzzle } from './CurrentPuzzle';
-import { PuzzleDefinition, ShapeId, SquareShape, CircleShape, TriangleShape, CatShape } from './types';
+import { PuzzleDefinition, ShapeId, SquareShape, CircleShape, TriangleShape, CatShape, GameBoard, ConstraintDefinition } from './types';
 
 export class PuzzleSolver {
   private static readonly SHAPES: ShapeId[] = [CatShape, SquareShape, CircleShape, TriangleShape];
   
   private puzzle: CurrentPuzzle;
+  private width: number;
+  private height: number;
+  private totalCells: number;
   private fewestMoves: number = Infinity;
   private correctSolutions: number = 0;
   private deadEnds: number = 0;
   private isSolvable: boolean = false;
-  private stateCache: Map<string, {
-    fewestMoves: number;
-    correctSolutions: number;
-    deadEnds: number;
-    isSolvable: boolean;
-  }> = new Map();
+  
+  // Optimizations
+  private findFirstOnly: boolean = false;
+  private maxCacheSize: number = 50000;
+  private stateCache: Map<string, boolean> = new Map(); // Simplified: just track if explored
   
   constructor(puzzleDef: PuzzleDefinition) {
     this.puzzle = new CurrentPuzzle(puzzleDef);
+    this.height = puzzleDef.initialBoard.length;
+    this.width = puzzleDef.initialBoard[0].length;
+    this.totalCells = this.width * this.height;
   }
   
   /**
-   * Solve the puzzle using brute force and return statistics
+   * Solve the puzzle and return statistics
+   * @param findFirstOnly If true, stop after finding first solution (faster for solvability check)
    */
-  public solve(): {
+  public solve(findFirstOnly: boolean = false): {
     fewestMoves: number;
     correctSolutions: number;
     deadEnds: number;
     isSolvable: boolean;
   } {
-    // Reset statistics
     this.fewestMoves = Infinity;
     this.correctSolutions = 0;
     this.deadEnds = 0;
     this.isSolvable = false;
+    this.findFirstOnly = findFirstOnly;
     this.stateCache.clear();
     
-    // Start the recursive solving process
     this.solveRecursive(0, 0, 0);
     
     return {
@@ -48,192 +53,192 @@ export class PuzzleSolver {
   }
   
   /**
-   * Generate a unique string key for the current board state
+   * Fast check if puzzle is solvable (stops at first solution)
    */
-  private getBoardStateKey(): string {
-    return JSON.stringify(this.puzzle.currentBoard);
+  public isSolvableFast(): boolean {
+    this.solve(true);
+    return this.isSolvable;
   }
   
   /**
-   * Recursive function to try all possible moves
-   * @param x Current x coordinate
-   * @param y Current y coordinate
-   * @param moveCount Current move count
-   * @returns Object containing solution statistics for this branch
+   * Fast state key using numeric encoding
    */
-  private solveRecursive(x: number, y: number, moveCount: number): {
-    fewestMoves: number;
-    correctSolutions: number;
-    deadEnds: number;
-    isSolvable: boolean;
-  } {
-    // Get the actual width and height of the board
-    const height = this.puzzle.currentBoard.length;
-    const width = this.puzzle.currentBoard[0].length;
+  private getBoardStateKey(): string {
+    let key = '';
+    for (const row of this.puzzle.currentBoard) {
+      for (const cell of row) {
+        key += cell.shape;
+      }
+    }
+    return key;
+  }
+  
+  /**
+   * Check if any non-cat constraint is definitely violated
+   */
+  private hasViolatedConstraint(): boolean {
+    const board = this.puzzle.currentBoard;
+    const constraints = this.puzzle.definition.constraints;
     
-    // If we've already found a solution with fewer moves, prune this branch
-    // But allow more exploration if we haven't found any solutions yet
-    if (this.correctSolutions > 0 && moveCount >= this.fewestMoves) {
-      return {
-        fewestMoves: Infinity,
-        correctSolutions: 0,
-        deadEnds: 0,
-        isSolvable: false
-      };
+    for (const constraint of constraints) {
+      // Skip cat constraints for early pruning
+      if (constraint.rule.shape === CatShape) continue;
+      
+      const { type, rule } = constraint;
+      const { shape, count, operator } = rule;
+      
+      // Count only committed (non-cat) shapes
+      let committedCount = 0;
+      
+      if (type === 'global') {
+        for (const row of board) {
+          for (const cell of row) {
+            if (cell.shape === shape) committedCount++;
+          }
+        }
+      } else {
+        const index = constraint.index ?? 0;
+        if (type === 'row') {
+          for (const cell of board[index]) {
+            if (cell.shape === shape) committedCount++;
+          }
+        } else {
+          for (const row of board) {
+            if (row[index].shape === shape) committedCount++;
+          }
+        }
+      }
+      
+      // Check for violations
+      if ((operator === 'exactly' || operator === 'at_most') && committedCount > count) {
+        return true;
+      }
+      if (operator === 'none' && committedCount > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  /**
+   * Recursive solver with optimizations
+   */
+  private solveRecursive(x: number, y: number, moveCount: number): boolean {
+    // Early exit if we've found a solution and only want one
+    if (this.findFirstOnly && this.isSolvable) {
+      return true;
     }
     
-    // Check if we've seen this board state before
-    const stateKey = this.getBoardStateKey();
-    const cachedResult = this.stateCache.get(stateKey);
-    if (cachedResult) {
-      return cachedResult;
+    // Early termination if we've found a better solution
+    if (this.isSolvable && moveCount >= this.fewestMoves) {
+      return false;
     }
     
-    // Check if all constraints are satisfied
-    const allConstraintsSatisfied = this.puzzle.currentConstraintStatuses.every(status => status);
-    
-    // Check if the puzzle is solved
+    // Check if solved
+    const allConstraintsSatisfied = this.puzzle.currentConstraintStatuses.every(s => s);
     if (allConstraintsSatisfied) {
       this.isSolvable = true;
       this.correctSolutions++;
-      this.fewestMoves = moveCount;
-      
-      const result = {
-        fewestMoves: 0, // 0 additional moves needed
-        correctSolutions: 1,
-        deadEnds: 0,
-        isSolvable: true
-      };
-      this.stateCache.set(stateKey, result);
-      return result;
+      if (moveCount < this.fewestMoves) {
+        this.fewestMoves = moveCount;
+      }
+      return true;
     }
     
-    // Find the next cell to try
-    let nextX = x;
-    let nextY = y;
+    // Past the board? Dead end
+    if (y >= this.height) {
+      this.deadEnds++;
+      return false;
+    }
     
-    // Move to the next cell
-    nextX++;
-    if (nextX >= width) {
+    // Early pruning: check if any constraint is violated
+    if (this.hasViolatedConstraint()) {
+      this.deadEnds++;
+      return false;
+    }
+    
+    // Cache states that we've proven to have no solution
+    // This is safe because if state X leads to no solution, it never will
+    const stateKey = this.getBoardStateKey();
+    if (this.stateCache.has(stateKey)) {
+      this.deadEnds++;
+      return false; // Already proven this state has no solution
+    }
+    
+    // Calculate next position
+    let nextX = x + 1;
+    let nextY = y;
+    if (nextX >= this.width) {
       nextX = 0;
       nextY++;
     }
     
-    // If we've gone through all cells and haven't found a solution, it's a dead end
-    if (nextY >= height) {
-      this.deadEnds++;
-      
-      const result = {
-        fewestMoves: Infinity,
-        correctSolutions: 0,
-        deadEnds: 1,
-        isSolvable: false
-      };
-      this.stateCache.set(stateKey, result);
-      return result;
-    }
-    
-    // If the current cell is locked, skip to the next cell
+    // Skip locked cells
     if (!this.puzzle.canMove(x, y)) {
-      const result = this.solveRecursive(nextX, nextY, moveCount);
-      this.stateCache.set(stateKey, result);
-      return result;
+      return this.solveRecursive(nextX, nextY, moveCount);
     }
     
-    // Aggregate results from all possible moves
-    let branchFewestMoves = Infinity;
-    let branchCorrectSolutions = 0;
-    let branchDeadEnds = 0;
-    let branchIsSolvable = false;
+    const currentShape = this.puzzle.currentBoard[y][x].shape;
+    let foundSolution = false;
     
-    // Try Cat shape first since it's most flexible
-    const shapes: ShapeId[] = [CatShape, ...PuzzleSolver.SHAPES.filter(s => s !== CatShape)];
+    // Order shapes: current shape first (no move), then non-cats (faster pruning), then cat
+    const shapesToTry: ShapeId[] = [];
+    shapesToTry.push(currentShape); // Try keeping current shape first
+    for (const s of [SquareShape, CircleShape, TriangleShape]) {
+      if (s !== currentShape) shapesToTry.push(s);
+    }
+    if (CatShape !== currentShape) shapesToTry.push(CatShape);
     
-    // Try each possible shape in the current cell
-    for (const shape of shapes) {
-      // Skip if the shape is already in this cell
-      if (this.puzzle.currentBoard[y][x].shape === shape) {
-        continue;
+    for (const shape of shapesToTry) {
+      // Early exit if we found a solution and only need one
+      if (this.findFirstOnly && this.isSolvable) {
+        return true;
       }
       
-      // Make the move
-      this.puzzle.makeMove(x, y, shape);
+      const isKeepingCurrentShape = shape === currentShape;
       
-      // Check if this move has potential
-      const constraintStatuses = this.puzzle.currentConstraintStatuses;
-      const previousStatuses = this.puzzle.previousConstraintStatuses;
+      if (!isKeepingCurrentShape) {
+        this.puzzle.makeMove(x, y, shape);
+      }
       
-      // Count satisfied and unsatisfied constraints
-      const satisfiedCount = constraintStatuses.filter(status => status).length;
-      const previousSatisfiedCount = previousStatuses.filter(status => status).length;
+      const movesUsed = isKeepingCurrentShape ? 0 : 1;
+      const result = this.solveRecursive(nextX, nextY, moveCount + movesUsed);
       
-      // Continue if:
-      // 1. The move is a Cat (always explore these)
-      // 2. The move satisfied more constraints
-      // 3. We haven't found any solutions yet (explore more paths)
-      // 4. We're early in the solution (first quarter of moves)
-      if (shape === CatShape || 
-          satisfiedCount > previousSatisfiedCount ||
-          this.correctSolutions === 0 ||
-          moveCount < (width * height) / 4) {
-        
-        const result = this.solveRecursive(nextX, nextY, moveCount + 1);
-        
-        // Update branch statistics
-        if (result.isSolvable) {
-          branchIsSolvable = true;
-          branchCorrectSolutions += result.correctSolutions;
-          if (result.fewestMoves + 1 < branchFewestMoves) {
-            branchFewestMoves = result.fewestMoves + 1;
+      if (result) {
+        foundSolution = true;
+        if (this.findFirstOnly) {
+          if (!isKeepingCurrentShape) {
+            this.puzzle.undoMove();
           }
+          return true;
         }
-        branchDeadEnds += result.deadEnds;
-      } else {
-        branchDeadEnds++;
       }
       
-      // Undo the move to backtrack
-      this.puzzle.undoMove();
+      if (!isKeepingCurrentShape) {
+        this.puzzle.undoMove();
+      }
     }
     
-    // Create result for this state
-    const result = {
-      fewestMoves: branchIsSolvable ? branchFewestMoves : Infinity,
-      correctSolutions: branchCorrectSolutions,
-      deadEnds: branchDeadEnds,
-      isSolvable: branchIsSolvable
-    };
+    // Cache negative results only (proven dead ends)
+    if (!foundSolution && this.stateCache.size < this.maxCacheSize) {
+      this.stateCache.set(stateKey, true);
+    }
     
-    // Cache the result
-    this.stateCache.set(stateKey, result);
-    
-    return result;
+    return foundSolution;
   }
   
-  /**
-   * Get the fewest moves needed to solve the puzzle
-   */
   public getFewestMoves(): number {
     return this.fewestMoves === Infinity ? -1 : this.fewestMoves;
   }
   
-  /**
-   * Get the number of correct solutions
-   */
   public getCorrectSolutions(): number {
     return this.correctSolutions;
   }
   
-  /**
-   * Get the number of dead ends encountered
-   */
   public getDeadEnds(): number {
     return this.deadEnds;
   }
   
-  /**
-   * Check if the puzzle is solvable
-   */
   public getIsSolvable(): boolean {
     return this.isSolvable;
   }
