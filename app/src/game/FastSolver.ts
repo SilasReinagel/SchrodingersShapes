@@ -190,6 +190,7 @@ export class FastSolver {
 
   /**
    * Check if any constraint is definitely violated (early pruning)
+   * For early pruning, we only count committed (non-cat) shapes, not cats
    */
   private hasViolatedConstraint(): boolean {
     for (let i = 0; i < this.constraints.length; i++) {
@@ -208,12 +209,14 @@ export class FastSolver {
         // Count constraint - skip cat constraints for early pruning
         if (c.shape === CatShape) continue;
         
-        const count = this.countShape(c);
+        // For early pruning, only count committed (non-cat) shapes
+        // Cats can still change, so we shouldn't count them
+        const committedCount = this.countCommittedShape(c);
         
-        if ((c.operator === 'exactly' || c.operator === 'at_most') && count > c.count!) {
+        if ((c.operator === 'exactly' || c.operator === 'at_most') && committedCount > c.count!) {
           return true;
         }
-        if (c.operator === 'none' && count > 0) {
+        if (c.operator === 'none' && committedCount > 0) {
           return true;
         }
       }
@@ -256,6 +259,7 @@ export class FastSolver {
 
   /**
    * Count shapes for a constraint (optimized with pre-computed indices)
+   * Counts cats as matching any non-cat shape (for final solution checking)
    */
   private countShape(c: ParsedConstraint): number {
     let count = 0;
@@ -266,6 +270,25 @@ export class FastSolver {
     for (let i = 0; i < indices.length; i++) {
       const cellShape = this.board[indices[i]];
       if (cellShape === targetShape || (!isCatTarget && cellShape === CatShape)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Count only committed (non-cat) shapes for a constraint
+   * Used for early pruning - cats can still change so we don't count them
+   */
+  private countCommittedShape(c: ParsedConstraint): number {
+    let count = 0;
+    const indices = c.cellIndices!;
+    const targetShape = c.shape;
+    
+    for (let i = 0; i < indices.length; i++) {
+      const cellShape = this.board[indices[i]];
+      // Only count exact matches, not cats
+      if (cellShape === targetShape) {
         count++;
       }
     }

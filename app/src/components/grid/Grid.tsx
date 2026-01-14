@@ -1,8 +1,9 @@
-import { motion } from 'framer-motion';
-import { useState, useRef } from 'react';
-import { GameBoard, ShapeId } from '../../game/types';
+import { motion, LayoutGroup } from 'framer-motion';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { GameBoard, ShapeId, CatShape } from '../../game/types';
 import { Shape } from '../shapes/Shape';
-import { ShapePicker } from '../shapes/ShapePicker';
+import { ShapePicker, PICKER_WIDTH, PICKER_HEIGHT } from '../shapes/ShapePicker';
+import { createGridGlowFilter } from '../../constants/glowColors';
 
 interface GridProps {
   grid: GameBoard;
@@ -13,8 +14,11 @@ interface GridProps {
 interface PickerState {
   isOpen: boolean;
   position: { x: number; y: number };
+  cellRect: { x: number; y: number; width: number; height: number };
   row: number;
   col: number;
+  cellId: string;
+  selectedShape: ShapeId | null;
 }
 
 // Board padding for the sliceable frame (x = horizontal, y = vertical)
@@ -34,43 +38,83 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   const [picker, setPicker] = useState<PickerState>({
     isOpen: false,
     position: { x: 0, y: 0 },
+    cellRect: { x: 0, y: 0, width: 0, height: 0 },
     row: 0,
-    col: 0
+    col: 0,
+    cellId: '',
+    selectedShape: null
   });
 
   const handleCellClick = (row: number, col: number, event: React.MouseEvent) => {
     const cell = grid[row][col];
-    if (cell.shape === 0 && !cell.locked) { // 0 is CatShape
+    if (cell.shape === CatShape && !cell.locked) {
       const cellElement = event.currentTarget as HTMLElement;
       const rect = cellElement.getBoundingClientRect();
       
-      // Get picker dimensions (assuming our standard sizes from ShapePicker)
-      const PICKER_WIDTH = 3 * 56 + 36; // 3 buttons (w-14=56px) + gaps and padding
-      const PICKER_HEIGHT = 56 + 24; // 1 button height + padding
-      const GAP = 12; // Space between cell and picker
+      // Calculate cell center
+      const cellCenterX = rect.left + rect.width / 2;
+      const cellCenterY = rect.top + rect.height / 2;
       
-      // Calculate position relative to viewport (picker is portaled to document.body)
-      const x = rect.left + (rect.width / 2) - (PICKER_WIDTH / 2);
-      const y = rect.top - PICKER_HEIGHT - GAP;
+      // Position picker centered on cell (same center X and Y)
+      const x = cellCenterX - PICKER_WIDTH / 2;
+      const y = cellCenterY - PICKER_HEIGHT / 2;
+
+      const cellId = `cell-${row}-${col}`;
 
       setPicker({
         isOpen: true,
         position: { x, y },
+        cellRect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
         row,
-        col
+        col,
+        cellId,
+        selectedShape: null
       });
     }
     onCellClick(row, col);
+  };
+
+  const handleShapeSelect = (shape: Exclude<ShapeId, 0>) => {
+    // Store the selected shape and close picker
+    setPicker(prev => ({ 
+      ...prev, 
+      isOpen: false,
+      selectedShape: shape 
+    }));
+    
+    // Trigger the shape selection (this updates the grid state)
+    onShapeSelect(picker.row, picker.col, shape);
   };
 
   // Get grid dimensions
   const height = grid.length;
   const width = grid[0].length;
 
-  // Calculate cell size based on screen size and grid dimensions
-  const getCellSize = () => {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+  // Memoize viewport size to avoid recalculating on every render
+  const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
+    const handleResize = () => {
+      // Debounce resize events to avoid excessive recalculations
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+      }, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Memoize cell size calculation to avoid recalculating on every render
+  const cellSize = useMemo(() => {
+    const viewportWidth = viewportSize.width;
+    const viewportHeight = viewportSize.height;
     
     // Base cell sizes for different screen sizes
     let baseCellSize: number;
@@ -83,9 +127,7 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
     }
     
     return Math.max(60, baseCellSize); // Minimum cell size of 60px
-  };
-
-  const cellSize = getCellSize();
+  }, [viewportSize.width, viewportSize.height, width, height]);
   const gap = Math.max(8, cellSize * 0.1); // Gap proportional to cell size, minimum 8px
   const paddingX = BOARD_PADDING_X;
   const paddingY = BOARD_PADDING_Y;
@@ -94,70 +136,130 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   const gridContentWidth = width * cellSize + (width - 1) * gap;
   const gridContentHeight = height * cellSize + (height - 1) * gap;
 
-  return (
-    <motion.div
-      ref={gridRef}
-      className="board-frame relative flex items-center justify-center"
-      initial={{ scale: 0.95, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      style={{
-        width: gridContentWidth + paddingX * 2,
-        height: gridContentHeight + paddingY * 2,
-        maxWidth: '100%',
-        maxHeight: '100%',
-        padding: `${paddingY}px ${paddingX}px`,
-        // 9-slice border image - corners stay fixed, edges and center stretch
-        borderStyle: 'solid',
-        borderWidth: `${paddingY}px ${paddingX}px`,
-        borderImageSource: 'url(/art/board_3x2_sliceable.png)',
-        borderImageSlice: `${BORDER_SLICE} fill`,
-        borderImageRepeat: 'stretch',
-      }}
-    >
-      <div 
-        className="grid relative z-10"
-        style={{ 
-          gridTemplateColumns: `repeat(${width}, ${cellSize}px)`,
-          gridTemplateRows: `repeat(${height}, ${cellSize}px)`,
-          gap: `${gap}px`,
-          width: 'fit-content',
-          height: 'fit-content',
-          transform: `translateY(${CONTENT_OFFSET_Y}px)`,
-        }}
-      >
-        {grid.map((row, rowIndex) => (
-          row.map((cell, colIndex) => (
-            <motion.div
-              key={`${rowIndex}-${colIndex}`}
-              className={`grid-cell-art ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
-              style={{ 
-                width: `${cellSize}px`, 
-                height: `${cellSize}px`,
-                backgroundImage: 'url(/art/shape_cell_01.png)',
-                backgroundSize: '100% 100%',
-                backgroundRepeat: 'no-repeat',
-              }}
-              whileHover={cell.shape === 0 && !cell.locked ? { scale: 1.02 } : undefined}
-              whileTap={cell.shape === 0 && !cell.locked ? { scale: 0.98 } : undefined}
-              onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-            >
-              <Shape type={cell.shape} isLocked={cell.locked} />
-            </motion.div>
-          ))
-        ))}
-      </div>
+  // Generate cellId for layoutId matching
+  const getCellId = (row: number, col: number) => `cell-${row}-${col}`;
 
-      {picker.isOpen && (
-        <ShapePicker
-          position={picker.position}
-          onSelect={(shape) => {
-            onShapeSelect(picker.row, picker.col, shape);
-            setPicker(prev => ({ ...prev, isOpen: false }));
+  return (
+    <LayoutGroup>
+      {/* Wrapper div with margin to allow glow to show - glow extends ~30px outward */}
+      {/* Using inline-flex to ensure proper sizing while allowing overflow */}
+      <div style={{ margin: '40px', display: 'inline-flex', overflow: 'visible' }}>
+        <motion.div
+          ref={gridRef}
+          className="board-frame relative flex items-center justify-center"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 0.8 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          style={{
+            width: gridContentWidth + paddingX * 2,
+            height: gridContentHeight + paddingY * 2,
+            maxWidth: '100%',
+            maxHeight: '100%',
+            padding: `${paddingY}px ${paddingX}px`,
+            // 9-slice border image - corners stay fixed, edges and center stretch
+            borderStyle: 'solid',
+            borderWidth: `${paddingY}px ${paddingX}px`,
+            borderImageSource: 'url(/art/board_3x2_sliceable.png)',
+            borderImageSlice: `${BORDER_SLICE} fill`,
+            borderImageRepeat: 'stretch',
+            // Use only filter drop-shadow - follows the actual rendered shape
+            // box-shadow creates rectangular glow that doesn't match rounded corners
+            filter: createGridGlowFilter(),
           }}
-          onClose={() => setPicker(prev => ({ ...prev, isOpen: false }))}
-        />
-      )}
-    </motion.div>
+        >
+          {/* Animated diagonal shine overlay - covers frame + board (hidden for now)
+          <motion.div
+            className="absolute pointer-events-none z-20 overflow-hidden"
+            style={{ 
+              top: `-${paddingY}px`,
+              left: `-${paddingX}px`,
+              right: `-${paddingX}px`,
+              bottom: `-${paddingY}px`,
+              borderRadius: '16px',
+            }}
+          >
+            <motion.div
+              className="absolute inset-0"
+              animate={{
+                x: ['-100%', '200%'],
+              }}
+              transition={{
+                duration: 2.5,
+                repeat: Infinity,
+                repeatDelay: 6,
+                ease: 'easeInOut',
+              }}
+              style={{
+                background: `linear-gradient(
+                  135deg,
+                  transparent 0%,
+                  transparent 42%,
+                  rgba(255, 255, 255, 0.15) 46%,
+                  rgba(255, 255, 255, 0.35) 50%,
+                  rgba(255, 255, 255, 0.15) 54%,
+                  transparent 58%,
+                  transparent 100%
+                )`,
+                width: '100%',
+                height: '100%',
+              }}
+            />
+          </motion.div>
+          */}
+          <div 
+            className="grid relative z-10"
+            style={{ 
+              gridTemplateColumns: `repeat(${width}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${height}, ${cellSize}px)`,
+              gap: `${gap}px`,
+              width: 'fit-content',
+            height: 'fit-content',
+            transform: `translateY(${CONTENT_OFFSET_Y}px)`,
+          }}
+        >
+          {grid.map((row, rowIndex) => (
+            row.map((cell, colIndex) => {
+              const cellId = getCellId(rowIndex, colIndex);
+              const isPickerTarget = picker.cellId === cellId;
+              const shouldUseLayoutId = isPickerTarget && picker.selectedShape !== null;
+              
+              return (
+                <motion.div
+                  key={cellId}
+                  className={`grid-cell-art ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
+                  style={{ 
+                    width: `${cellSize}px`, 
+                    height: `${cellSize}px`,
+                    backgroundImage: 'url(/art/shape_cell_01.png)',
+                    backgroundSize: '100% 100%',
+                    backgroundRepeat: 'no-repeat',
+                  }}
+                  whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
+                  whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
+                  onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
+                >
+                  <Shape 
+                    type={cell.shape} 
+                    isLocked={cell.locked}
+                    layoutId={shouldUseLayoutId ? `shape-${cellId}-${picker.selectedShape}` : undefined}
+                  />
+                </motion.div>
+              );
+            })
+          ))}
+        </div>
+
+        {picker.isOpen && (
+          <ShapePicker
+            position={picker.position}
+            cellRect={picker.cellRect}
+            targetCellId={picker.cellId}
+            onSelect={handleShapeSelect}
+            onClose={() => setPicker(prev => ({ ...prev, isOpen: false }))}
+          />
+        )}
+        </motion.div>
+      </div>
+    </LayoutGroup>
   );
-}; 
+};

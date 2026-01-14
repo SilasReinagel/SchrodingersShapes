@@ -36,10 +36,10 @@ export const Game: React.FC = () => {
 
         {/* Main Content */}
         <main className="flex-1 container mx-auto px-4 py-2 relative z-10 flex items-center justify-center pt-20 pb-20">
-          <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8 w-full max-h-[calc(100vh-120px)] relative overflow-x-hidden">
+          <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8 w-full max-h-[calc(100vh-120px)] relative overflow-x-hidden overflow-y-visible">
             {/* Puzzle Grid Container */}
-            <div className="w-full lg:w-auto flex-shrink-0 flex justify-center lg:flex-1">
-              <div className="w-full max-w-2xl lg:max-w-4xl h-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+            <div className="w-full lg:w-auto flex-shrink-0 flex justify-center lg:flex-1 overflow-visible">
+              <div className="w-full max-w-2xl lg:max-w-4xl h-auto overflow-visible" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                 <Grid 
                   grid={puzzle.currentBoard}
                   onCellClick={handleCellClick}
@@ -68,6 +68,8 @@ export const Game: React.FC = () => {
               <ConstraintsPanel 
                 constraints={puzzle.definition.constraints} 
                 grid={puzzle.currentBoard}
+                boardWidth={puzzle.currentBoard[0]?.length ?? 0}
+                boardHeight={puzzle.currentBoard.length}
               />
             </div>
           </div>
@@ -77,7 +79,6 @@ export const Game: React.FC = () => {
         <VictoryModal
           isOpen={showVictory}
           onClose={handleCloseVictory}
-          moves={puzzle.getMoveCount()}
           time={timer}
           onNextLevel={handleNextLevel}
         />

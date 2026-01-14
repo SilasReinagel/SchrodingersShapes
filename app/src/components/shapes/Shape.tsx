@@ -5,6 +5,7 @@ interface ShapeProps {
   type: ShapeId;
   className?: string;
   isLocked?: boolean;
+  layoutId?: string; // Optional layoutId for shared element animations
 }
 
 type ShapeStyle = {
@@ -12,7 +13,10 @@ type ShapeStyle = {
   className: string;
 };
 
-export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = false }) => {
+// Neon effect colors
+const NEON_CYAN = '#00E5FF';
+
+export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = false, layoutId }) => {
   if (type === CatShape) {
     return (
       <motion.div
@@ -58,9 +62,47 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
     return null;
   }
 
+  // Use layoutId if provided for shared element transitions
+  const shapeContent = (
+    <img 
+      src={style.image} 
+      alt={String(type)} 
+      className="w-full h-full object-contain p-1 relative z-10"
+      style={{
+        filter: `drop-shadow(0 0 6px ${NEON_CYAN}) drop-shadow(0 0 4px rgba(0, 229, 255, 0.4))`,
+      }}
+    />
+  );
+
+  // If we have a layoutId, wrap the image in a motion.div with that layoutId
+  // This enables the "fly to slot" animation from the picker
+  if (layoutId) {
+    return (
+      <motion.div
+        className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative flex items-center justify-center`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isLocked ? 0.5 : 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <motion.div
+          layoutId={layoutId}
+          className="w-full h-full"
+          transition={{
+            type: "spring",
+            damping: 25,
+            stiffness: 300,
+          }}
+        >
+          {shapeContent}
+        </motion.div>
+      </motion.div>
+    );
+  }
+
+  // Regular rendering without layoutId (for backward compatibility)
   return (
     <motion.div
-      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative`}
+      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative flex items-center justify-center`}
       initial={{ scale: 0.8, opacity: isLocked ? 0.5 : 0 }}
       animate={{ scale: 1, opacity: isLocked ? 0.5 : 1 }}
       transition={{ 
@@ -69,26 +111,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
         damping: 25
       }}
     >
-      {/* Glitch effect overlay */}
-      <div 
-        className="absolute inset-0 pointer-events-none glitch-overlay"
-        style={{
-          background: `
-            linear-gradient(90deg, transparent 0%, rgba(255, 0, 0, 0.3) 50%, transparent 100%),
-            linear-gradient(0deg, transparent 0%, rgba(0, 217, 255, 0.3) 50%, transparent 100%)
-          `,
-          mixBlendMode: 'screen',
-          opacity: 0.6
-        }}
-      />
-      <img 
-        src={style.image} 
-        alt={String(type)} 
-        className="w-full h-full object-contain p-1 relative z-10"
-        style={{
-          filter: 'drop-shadow(0 0 4px rgba(255, 0, 0, 0.5)) drop-shadow(0 0 4px rgba(0, 217, 255, 0.5))'
-        }}
-      />
+      {shapeContent}
     </motion.div>
   );
-}; 
+};

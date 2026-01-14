@@ -13,16 +13,16 @@ const meta = {
   component: VictoryModal,
   parameters: {
     layout: 'fullscreen',
+    backgrounds: {
+      default: 'dark',
+      values: [{ name: 'dark', value: '#0a0e27' }],
+    },
   },
   tags: ['autodocs'],
   argTypes: {
     isOpen: {
       control: 'boolean',
       description: 'Whether the modal is open',
-    },
-    moves: {
-      control: 'number',
-      description: 'Number of moves taken',
     },
     time: {
       control: 'text',
@@ -45,7 +45,6 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     isOpen: true,
-    moves: 15,
     time: '02:34',
     onClose: () => {},
     onNextLevel: () => {},
@@ -70,7 +69,7 @@ export const Default: Story = {
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="absolute top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded"
+            className="absolute top-4 left-4 px-4 py-2 bg-cyan-500 text-white rounded"
           >
             Show Victory Modal
           </button>
@@ -80,11 +79,10 @@ export const Default: Story = {
   },
 };
 
-export const LowMoves: Story = {
+export const QuickTime: Story = {
   args: {
     isOpen: true,
-    moves: 8,
-    time: '01:12',
+    time: '00:45',
     onClose: () => {},
     onNextLevel: () => {},
   },
@@ -108,45 +106,7 @@ export const LowMoves: Story = {
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="absolute top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded"
-          >
-            Show Victory Modal
-          </button>
-        )}
-      </>
-    );
-  },
-};
-
-export const HighMoves: Story = {
-  args: {
-    isOpen: true,
-    moves: 42,
-    time: '05:23',
-    onClose: () => {},
-    onNextLevel: () => {},
-  },
-  render: (args) => {
-    const [isOpen, setIsOpen] = useState(true);
-    
-    return (
-      <>
-        <VictoryModal
-          {...args}
-          isOpen={isOpen}
-          onClose={() => {
-            args.onClose();
-            setIsOpen(false);
-          }}
-          onNextLevel={() => {
-            args.onNextLevel();
-            setIsOpen(false);
-          }}
-        />
-        {!isOpen && (
-          <button
-            onClick={() => setIsOpen(true)}
-            className="absolute top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded"
+            className="absolute top-4 left-4 px-4 py-2 bg-cyan-500 text-white rounded"
           >
             Show Victory Modal
           </button>
@@ -159,7 +119,6 @@ export const HighMoves: Story = {
 export const LongTime: Story = {
   args: {
     isOpen: true,
-    moves: 25,
     time: '12:45',
     onClose: () => {},
     onNextLevel: () => {},
@@ -184,7 +143,7 @@ export const LongTime: Story = {
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="absolute top-4 left-4 px-4 py-2 bg-blue-500 text-white rounded"
+            className="absolute top-4 left-4 px-4 py-2 bg-cyan-500 text-white rounded"
           >
             Show Victory Modal
           </button>

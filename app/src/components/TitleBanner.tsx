@@ -1,5 +1,6 @@
 import React from 'react';
 import { BannerShape } from './BannerShape';
+import { GLOW_COLORS } from '../constants/glowColors';
 
 export const TitleBanner: React.FC = () => {
   return (
@@ -46,7 +47,7 @@ export const TitleBanner: React.FC = () => {
           className="text-xl font-bold tracking-wide ml-2"
           style={{
             color: '#B0E0FF',
-            textShadow: '0 0 10px rgba(176, 224, 255, 0.9), 0 0 20px rgba(79, 195, 247, 0.6)',
+            textShadow: `0 0 10px ${GLOW_COLORS.primary}, 0 0 20px ${GLOW_COLORS.secondary}`,
             fontFamily: "'Fredoka', sans-serif",
             fontWeight: 600,
             letterSpacing: '0.5px',

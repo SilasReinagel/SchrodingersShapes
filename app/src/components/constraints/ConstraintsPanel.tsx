@@ -3,10 +3,13 @@ import { motion } from 'framer-motion';
 import { ConstraintDefinition, GameBoard } from '../../game/types';
 import { getConstraintStates } from './constraintStatus';
 import { ConstraintRow } from './ConstraintRow';
+import { createGlowFilter } from '../../constants/glowColors';
 
 interface ConstraintsPanelProps {
   constraints: ConstraintDefinition[];
   grid: GameBoard;
+  boardWidth: number;
+  boardHeight: number;
 }
 
 /**
@@ -18,7 +21,9 @@ interface ConstraintsPanelProps {
  */
 export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({ 
   constraints, 
-  grid 
+  grid,
+  boardWidth,
+  boardHeight
 }) => {
   const constraintStates = getConstraintStates(grid, constraints);
 
@@ -39,6 +44,8 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
           borderStyle: 'solid',
           borderWidth: '55px',
           minHeight: '100%',
+          // Use filter drop-shadow for consistent glow that works with border-image
+          filter: createGlowFilter(),
         }}
       >
         {constraints.map((constraint, index) => (
@@ -47,6 +54,8 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
             constraint={constraint}
             status={constraintStates[index]}
             index={index}
+            boardWidth={boardWidth}
+            boardHeight={boardHeight}
           />
         ))}
       </div>

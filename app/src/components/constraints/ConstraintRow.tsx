@@ -18,6 +18,8 @@ interface ConstraintRowProps {
   constraint: ConstraintDefinition;
   status: ConstraintState;
   index: number;
+  boardWidth: number;
+  boardHeight: number;
 }
 
 /**
@@ -84,7 +86,9 @@ const isForbidden = (constraint: ConstraintDefinition): boolean => {
 export const ConstraintRow: React.FC<ConstraintRowProps> = ({ 
   constraint, 
   status, 
-  index 
+  index,
+  boardWidth,
+  boardHeight
 }) => {
   const operator = getOperator(constraint);
   const shapeId = getShape(constraint);
@@ -121,8 +125,8 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
         ${statusBgClass}
       `}
     >
-      {/* Scope indicator (3×3 grid) */}
-      <ScopeIcon constraint={constraint} size="md" />
+      {/* Scope indicator (grid matching board size) */}
+      <ScopeIcon constraint={constraint} boardWidth={boardWidth} boardHeight={boardHeight} size="md" />
       
       {/* Operator and count */}
       <div className="flex items-center gap-2 text-2xl md:text-3xl font-nunito font-bold flex-1" style={{ color: '#88c9f0' }}>

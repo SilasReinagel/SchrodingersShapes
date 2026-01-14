@@ -4,10 +4,13 @@ import { GameProvider } from './contexts/GameContext';
 import { Game } from './pages/Game';
 import { MainMenu } from './pages/MainMenu';
 import { Designer } from './pages/Designer';
+import { PerformanceProfiler, useProfilerToggle } from './components/PerformanceProfiler';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const profilerEnabled = useProfilerToggle();
+
   return (
-    <GameProvider>
+    <>
       <Routes>
         <Route path="/" element={<MainMenu />} />
         <Route path="/game" element={<Game />} />
@@ -15,6 +18,15 @@ export const App: React.FC = () => {
         <Route path="/tutorial" element={<Navigate to="/game" replace />} /> {/* TODO: Add tutorial page */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <PerformanceProfiler enabled={profilerEnabled} />
+    </>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <GameProvider>
+      <AppContent />
     </GameProvider>
   );
 };

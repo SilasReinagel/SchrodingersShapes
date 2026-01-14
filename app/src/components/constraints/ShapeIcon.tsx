@@ -34,14 +34,13 @@ const TriangleSVG: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const CatSVG: React.FC<{ className?: string }> = ({ className }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    {/* Simple cat silhouette - head with ears */}
-    <path d="M4 10 L4 4 L8 8 L16 8 L20 4 L20 10 C20 15 17 20 12 20 C7 20 4 15 4 10 Z" />
-    {/* Eyes */}
-    <circle cx="9" cy="12" r="1.5" fill="#1a1a2e" />
-    <circle cx="15" cy="12" r="1.5" fill="#1a1a2e" />
-  </svg>
+const CatIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <img 
+    src="/art/cat_icon_512.png" 
+    alt="Cat shape" 
+    className={className}
+    style={{ objectFit: 'contain' }}
+  />
 );
 
 /**
@@ -58,7 +57,7 @@ export const ShapeIcon: React.FC<ShapeIconProps> = ({
   const renderShape = () => {
     switch (shapeId) {
       case CatShape:
-        return <CatSVG className="w-full h-full" />;
+        return <CatIcon className="w-full h-full" />;
       case SquareShape:
         return <SquareSVG className="w-full h-full" />;
       case CircleShape:

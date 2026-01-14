@@ -6,7 +6,6 @@ import { useWindowSize } from 'react-use';
 interface VictoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  moves: number;
   time: string;
   onNextLevel: () => void;
 }
@@ -14,7 +13,6 @@ interface VictoryModalProps {
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   isOpen,
   onClose,
-  moves,
   time,
   onNextLevel,
 }) => {
@@ -37,8 +35,40 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           stiffness: 400,
           damping: 30
         }}
-        className="bg-white rounded-3xl p-8 max-w-md mx-auto relative shadow-2xl"
+        className="relative max-w-md mx-auto rounded-3xl p-8 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(10, 14, 39, 0.95), rgba(30, 20, 60, 0.95))',
+          boxShadow: `
+            0 0 60px rgba(79, 195, 247, 0.4),
+            0 25px 50px -12px rgba(0, 0, 0, 0.7),
+            inset 0 0 80px rgba(79, 195, 247, 0.1),
+            0 0 0 2px rgba(79, 195, 247, 0.5),
+            0 0 0 4px rgba(255, 0, 255, 0.3)
+          `,
+          border: '2px solid rgba(79, 195, 247, 0.4)',
+          backdropFilter: 'blur(16px)',
+        }}
       >
+        {/* Animated glow orbs */}
+        <motion.div
+          className="absolute -top-20 -left-20 w-40 h-40 rounded-full blur-3xl opacity-40"
+          style={{ background: '#4FC3F7' }}
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3]
+          }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute -bottom-20 -right-20 w-48 h-48 rounded-full blur-3xl opacity-40"
+          style={{ background: '#FFB5BA' }}
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            opacity: [0.4, 0.6, 0.4]
+          }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        />
+
         {isOpen && (
           <Confetti 
             width={width} 
@@ -47,7 +77,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             numberOfPieces={200}
             gravity={0.3}
             initialVelocityY={-5}
-            colors={['#FFB5BA', '#A8D8FF', '#FFE5B4']}
+            colors={['#4FC3F7', '#FFB5BA', '#FFE5B4', '#00D9FF', '#FF00FF']}
             style={{
               position: 'fixed',
               top: 0,
@@ -59,39 +89,90 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           />
         )}
         
-        <h2 className="text-4xl font-fredoka font-bold mb-8 text-center bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle bg-clip-text text-transparent">
-          Puzzle Solved!
-        </h2>
+        {/* Title with glow effect */}
+        <motion.h2 
+          className="relative text-4xl font-fredoka font-bold mb-8 text-center"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <span 
+            className="relative z-10"
+            style={{
+              background: 'linear-gradient(135deg, #4FC3F7, #FFB5BA, #FFE5B4)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              textShadow: '0 0 40px rgba(79, 195, 247, 0.5)',
+            }}
+          >
+            Puzzle Solved!
+          </span>
+        </motion.h2>
         
-        <div className="space-y-6 mb-8">
-          <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
-            <span className="text-gray-800 font-nunito font-bold">Moves</span>
-            <span className="text-3xl font-nunito font-bold text-gray-900">
-              {moves}
-            </span>
-          </div>
-          <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
-            <span className="text-gray-800 font-nunito font-bold">Time</span>
-            <span className="text-3xl font-nunito font-bold text-gray-900">
+        {/* Time display */}
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div 
+            className="flex justify-between items-center rounded-xl p-5"
+            style={{
+              background: 'linear-gradient(135deg, rgba(79, 195, 247, 0.15), rgba(107, 70, 193, 0.15))',
+              border: '1px solid rgba(79, 195, 247, 0.3)',
+              boxShadow: 'inset 0 0 20px rgba(79, 195, 247, 0.1)',
+            }}
+          >
+            <span className="text-cyan-300 font-nunito font-bold text-lg tracking-wide">Time</span>
+            <span 
+              className="text-4xl font-nunito font-bold tracking-wider"
+              style={{
+                background: 'linear-gradient(135deg, #4FC3F7, #00D9FF)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                textShadow: '0 0 20px rgba(79, 195, 247, 0.6)',
+              }}
+            >
               {time}
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="flex flex-col space-y-3">
+        {/* Buttons */}
+        <div className="flex flex-col space-y-3 relative z-10">
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(79, 195, 247, 0.6)' }}
             whileTap={{ scale: 0.98 }}
             onClick={onNextLevel}
-            className="w-full py-4 px-6 bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle text-white rounded-xl font-fredoka font-bold text-lg hover:opacity-90 transition-opacity shadow-lg"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="w-full py-4 px-6 rounded-xl font-fredoka font-bold text-lg transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #4FC3F7, #6B46C1)',
+              color: 'white',
+              boxShadow: '0 0 20px rgba(79, 195, 247, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(79, 195, 247, 0.5)',
+            }}
           >
             Next Level
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, backgroundColor: 'rgba(79, 195, 247, 0.2)' }}
             whileTap={{ scale: 0.98 }}
             onClick={onClose}
-            className="w-full py-4 px-6 bg-gray-100 text-gray-800 rounded-xl font-fredoka font-bold text-lg hover:bg-gray-200 transition-colors"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="w-full py-4 px-6 rounded-xl font-fredoka font-bold text-lg transition-all"
+            style={{
+              background: 'rgba(79, 195, 247, 0.1)',
+              color: '#4FC3F7',
+              border: '1px solid rgba(79, 195, 247, 0.3)',
+            }}
           >
             Keep Playing
           </motion.button>

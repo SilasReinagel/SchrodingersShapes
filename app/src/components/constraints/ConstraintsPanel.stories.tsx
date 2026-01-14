@@ -48,6 +48,8 @@ export const SingleConstraint: Story = {
       },
     ],
     grid: createGrid(3, 3),
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -82,6 +84,8 @@ export const MultipleConstraints: Story = {
       },
     ],
     grid: createGrid(3, 3),
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -125,6 +129,8 @@ export const AllOperators: Story = {
       },
     ],
     grid: createGrid(3, 3),
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -154,6 +160,8 @@ export const SatisfiedConstraints: Story = {
       [{ shape: CatShape, locked: false }, { shape: TriangleShape, locked: false }, { shape: CatShape, locked: false }],
       [{ shape: CircleShape, locked: false }, { shape: CatShape, locked: false }, { shape: CatShape, locked: false }],
     ],
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -192,6 +200,8 @@ export const ViolatedConstraints: Story = {
       [{ shape: TriangleShape, locked: false }, { shape: CircleShape, locked: false }, { shape: CatShape, locked: false }],
       [{ shape: CircleShape, locked: false }, { shape: CircleShape, locked: false }, { shape: CircleShape, locked: false }],
     ],
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -231,6 +241,8 @@ export const CellConstraints: Story = {
       [{ shape: CatShape, locked: false }, { shape: SquareShape, locked: false }, { shape: CatShape, locked: false }],
       [{ shape: CircleShape, locked: false }, { shape: CatShape, locked: false }, { shape: CatShape, locked: false }],
     ],
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -274,6 +286,8 @@ export const MixedConstraints: Story = {
       },
     ],
     grid: createGrid(3, 3),
+    boardWidth: 3,
+    boardHeight: 3,
   },
 };
 
@@ -317,5 +331,180 @@ export const AllScopeTypes: Story = {
       },
     ],
     grid: createGrid(3, 3),
+    boardWidth: 3,
+    boardHeight: 3,
+  },
+};
+
+// Stories demonstrating different board sizes
+
+export const Board2x2: Story = {
+  args: {
+    constraints: [
+      {
+        type: 'global',
+        rule: {
+          shape: SquareShape,
+          count: 2,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'row',
+        index: 0,
+        rule: {
+          shape: CircleShape,
+          count: 1,
+          operator: 'at_least',
+        },
+      },
+      {
+        type: 'column',
+        index: 1,
+        rule: {
+          shape: TriangleShape,
+          count: 0,
+          operator: 'none',
+        },
+      },
+    ],
+    grid: createGrid(2, 2),
+    boardWidth: 2,
+    boardHeight: 2,
+  },
+};
+
+export const Board3x2: Story = {
+  args: {
+    constraints: [
+      {
+        type: 'global',
+        rule: {
+          shape: SquareShape,
+          count: 3,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'row',
+        index: 1,
+        rule: {
+          shape: CircleShape,
+          count: 1,
+          operator: 'at_least',
+        },
+      },
+      {
+        type: 'column',
+        index: 2,
+        rule: {
+          shape: TriangleShape,
+          count: 1,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'cell',
+        x: 0,
+        y: 0,
+        rule: {
+          shape: SquareShape,
+          operator: 'is',
+        },
+      },
+    ],
+    grid: createGrid(3, 2),
+    boardWidth: 3,
+    boardHeight: 2,
+  },
+};
+
+export const Board4x3: Story = {
+  args: {
+    constraints: [
+      {
+        type: 'global',
+        rule: {
+          shape: SquareShape,
+          count: 4,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'row',
+        index: 2,
+        rule: {
+          shape: CircleShape,
+          count: 2,
+          operator: 'at_least',
+        },
+      },
+      {
+        type: 'column',
+        index: 3,
+        rule: {
+          shape: TriangleShape,
+          count: 1,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'cell',
+        x: 2,
+        y: 1,
+        rule: {
+          shape: CircleShape,
+          operator: 'is_not',
+        },
+      },
+    ],
+    grid: createGrid(4, 3),
+    boardWidth: 4,
+    boardHeight: 3,
+  },
+};
+
+export const Board4x4: Story = {
+  args: {
+    constraints: [
+      {
+        type: 'global',
+        rule: {
+          shape: SquareShape,
+          count: 5,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'row',
+        index: 3,
+        rule: {
+          shape: CircleShape,
+          count: 2,
+          operator: 'at_least',
+        },
+      },
+      {
+        type: 'column',
+        index: 0,
+        rule: {
+          shape: TriangleShape,
+          count: 2,
+          operator: 'exactly',
+        },
+      },
+      {
+        type: 'cell',
+        x: 3,
+        y: 3,
+        rule: {
+          shape: SquareShape,
+          operator: 'is',
+        },
+      },
+    ],
+    grid: createGrid(4, 4),
+    boardWidth: 4,
+    boardHeight: 4,
   },
 };
