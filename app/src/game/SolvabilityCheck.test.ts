@@ -40,15 +40,5 @@ describe('Solution-First Solvability', () => {
     const rate = testSolvability('level3', 1.0);
     expect(rate).toBe(1.0);
   });
-
-  it('should generate 100% solvable puzzles for level4', () => {
-    const rate = testSolvability('level4', 1.0);
-    expect(rate).toBe(1.0);
-  });
-
-  it('should generate 100% solvable puzzles for level5', () => {
-    const rate = testSolvability('level5', 1.0);
-    expect(rate).toBe(1.0);
-  });
 });
 

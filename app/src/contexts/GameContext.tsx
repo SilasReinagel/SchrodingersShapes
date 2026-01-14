@@ -3,6 +3,16 @@ import { PuzzleGenerator } from '../game/PuzzleGenerator';
 import { CurrentPuzzle } from '../game/CurrentPuzzle';
 import type { ShapeId, Difficulty } from '../game/types';
 import { CatShape } from '../game/types';
+import { 
+  encodeLevelNumber, 
+  decodeLevelNumber, 
+  getNextLevelNumber,
+  getStartingLevelNumber 
+} from '../game/LevelNumber';
+
+// LocalStorage keys
+const STORAGE_KEY_LEVEL = 'schrodingers_shapes_level';
+const STORAGE_KEY_COMPLETED = 'schrodingers_shapes_completed';
 
 interface GameContextType {
   // Game state
@@ -10,17 +20,19 @@ interface GameContextType {
   isPlaying: boolean;
   showVictory: boolean;
   difficulty: Difficulty;
+  seed: number;
+  levelNumber: number;
   timer: string;
   moveCount: number;
   isLoaded: boolean;
 
   // Actions
-  generateNewPuzzle: (difficultyLevel: Difficulty) => void;
+  generatePuzzleForLevel: (levelNumber: number) => void;
   handleCellClick: (row: number, col: number) => void;
   handleShapeSelect: (row: number, col: number, shape: ShapeId) => void;
   handleUndo: () => void;
   handleResetLevel: () => void;
-  handleNextPuzzle: () => void;
+  handleNextLevel: () => void;
   setDifficulty: (difficulty: Difficulty) => void;
   handleCloseVictory: () => void;
 }
@@ -35,15 +47,78 @@ export const useGame = () => {
   return context;
 };
 
+/**
+ * Loads the saved level from localStorage, or returns the starting level for the given difficulty
+ */
+const loadSavedLevel = (): number => {
+  try {
+    const savedLevel = localStorage.getItem(STORAGE_KEY_LEVEL);
+    if (savedLevel) {
+      const level = parseInt(savedLevel, 10);
+      if (!isNaN(level) && level >= 10000) {
+        return level;
+      }
+    }
+  } catch {
+    // localStorage not available
+  }
+  return getStartingLevelNumber('level2'); // Default to level2 seed 0
+};
+
+/**
+ * Saves the current level to localStorage
+ */
+const saveCurrentLevel = (levelNumber: number): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY_LEVEL, levelNumber.toString());
+  } catch {
+    // localStorage not available
+  }
+};
+
+/**
+ * Marks a level as completed in localStorage
+ */
+const markLevelCompleted = (levelNumber: number): void => {
+  try {
+    const completed = loadCompletedLevels();
+    completed.add(levelNumber);
+    localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify([...completed]));
+  } catch {
+    // localStorage not available
+  }
+};
+
+/**
+ * Loads the set of completed levels from localStorage
+ */
+const loadCompletedLevels = (): Set<number> => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_COMPLETED);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed);
+      }
+    }
+  } catch {
+    // localStorage not available or invalid data
+  }
+  return new Set();
+};
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const puzzleRef = useRef<CurrentPuzzle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>('level2');
+  const [levelNumber, setLevelNumber] = useState<number>(() => loadSavedLevel());
   const [isLoaded, setIsLoaded] = useState(false);
   const [timer, setTimer] = useState('00:00');
   const [moveCount, setMoveCount] = useState(0);
   const [, forceUpdate] = useState({});
+
+  // Derive difficulty and seed from level number
+  const { difficulty, seed } = decodeLevelNumber(levelNumber);
 
   const updateMoveCount = useCallback(() => {
     const puzzle = puzzleRef.current;
@@ -57,24 +132,61 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (puzzle?.isPuzzleSolved()) {
       setIsPlaying(false);
       setShowVictory(true);
+      // Mark level as completed and save next level
+      markLevelCompleted(levelNumber);
+      const nextLevel = getNextLevelNumber(levelNumber);
+      saveCurrentLevel(nextLevel);
     }
-  }, []);
+  }, [levelNumber]);
 
-  const generateNewPuzzle = useCallback((difficultyLevel: Difficulty) => {
-    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: difficultyLevel });
+  const generatePuzzleForLevel = useCallback((newLevelNumber: number) => {
+    const { difficulty: newDifficulty, seed: newSeed } = decodeLevelNumber(newLevelNumber);
+    const initialPuzzleDef = PuzzleGenerator.generate({ difficulty: newDifficulty }, newSeed);
     puzzleRef.current = new CurrentPuzzle(initialPuzzleDef);
     
+    setLevelNumber(newLevelNumber);
     setIsPlaying(false);
     setShowVictory(false);
     setIsLoaded(true);
     setMoveCount(0);
     setTimer('00:00');
+    saveCurrentLevel(newLevelNumber);
     forceUpdate({});
   }, []);
 
+  // Timer effect: update timer state when playing
   useEffect(() => {
-    generateNewPuzzle(difficulty);
-  }, [difficulty, generateNewPuzzle]);
+    let interval: ReturnType<typeof setInterval> | null = null;
+    
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setTimer((currentTime) => {
+          const [minutes, seconds] = currentTime.split(':').map(Number);
+          let newSeconds = seconds + 1;
+          let newMinutes = minutes;
+          
+          if (newSeconds >= 60) {
+            newSeconds = 0;
+            newMinutes += 1;
+          }
+          
+          return `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isPlaying]);
+
+  // Initialize puzzle on mount
+  useEffect(() => {
+    generatePuzzleForLevel(levelNumber);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCellClick = useCallback((row: number, col: number): void => {
     const puzzle = puzzleRef.current;
@@ -128,9 +240,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     forceUpdate({});
   }, [showVictory, updateMoveCount]);
 
-  const handleNextPuzzle = useCallback(() => {
-    generateNewPuzzle(difficulty);
-  }, [difficulty, generateNewPuzzle]);
+  const handleNextLevel = useCallback(() => {
+    const nextLevel = getNextLevelNumber(levelNumber);
+    generatePuzzleForLevel(nextLevel);
+  }, [levelNumber, generatePuzzleForLevel]);
 
   const handleResetLevel = useCallback(() => {
     const puzzle = puzzleRef.current;
@@ -148,23 +261,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowVictory(false);
   }, []);
 
+  const setDifficultyHandler = useCallback((newDifficulty: Difficulty) => {
+    // When difficulty changes, load the saved progress for that difficulty
+    // or start at seed 0 if no progress exists
+    const newLevelNumber = getStartingLevelNumber(newDifficulty);
+    
+    // Check if there's saved progress for this difficulty
+    const completedLevels = loadCompletedLevels();
+    let targetLevel = newLevelNumber;
+    
+    // Find the next uncompleted level in this difficulty
+    const { difficulty: checkDiff } = decodeLevelNumber(newLevelNumber);
+    for (let i = 0; i < 10000; i++) {
+      const checkLevel = encodeLevelNumber(checkDiff, i);
+      if (!completedLevels.has(checkLevel)) {
+        targetLevel = checkLevel;
+        break;
+      }
+    }
+    
+    generatePuzzleForLevel(targetLevel);
+  }, [generatePuzzleForLevel]);
+
   const value = {
     puzzle: puzzleRef.current,
     isPlaying,
     showVictory,
     difficulty,
+    seed,
+    levelNumber,
     timer,
     moveCount,
     isLoaded,
-    generateNewPuzzle,
+    generatePuzzleForLevel,
     handleCellClick,
     handleShapeSelect,
     handleUndo,
     handleResetLevel,
-    handleNextPuzzle,
-    setDifficulty,
+    handleNextLevel,
+    setDifficulty: setDifficultyHandler,
     handleCloseVictory,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
-}; 
+};

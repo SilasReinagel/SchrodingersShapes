@@ -23,8 +23,8 @@ export default {
         '5xl': '2.5rem',
       },
       fontFamily: {
-        'montserrat': ['Montserrat', 'system-ui', 'sans-serif'],
-        'inter': ['Inter', 'system-ui', 'sans-serif'],
+        'fredoka': ['Fredoka', 'system-ui', 'sans-serif'],
+        'nunito': ['Nunito', 'system-ui', 'sans-serif'],
       },
     },
   },

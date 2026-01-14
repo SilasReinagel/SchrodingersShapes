@@ -12,7 +12,7 @@ ReactModal.setAppElement('#root');
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <div className="min-h-screen bg-background font-inter antialiased">
+      <div className="min-h-screen bg-background font-nunito antialiased">
         <App />
       </div>
     </BrowserRouter>

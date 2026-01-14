@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Timer } from './Timer';
-import { useRef } from 'react';
 
 const meta = {
   title: 'Components/Timer',
@@ -10,9 +9,13 @@ const meta = {
   },
   tags: ['autodocs'],
   argTypes: {
-    isPlaying: {
-      control: 'boolean',
-      description: 'Whether the timer is currently running',
+    time: {
+      control: 'text',
+      description: 'The time string to display (format: MM:SS)',
+    },
+    className: {
+      control: 'text',
+      description: 'Additional CSS classes',
     },
   },
 } satisfies Meta<typeof Timer>;
@@ -20,39 +23,28 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Stopped: Story = {
+export const Default: Story = {
   args: {
-    isPlaying: false,
+    time: '00:00',
   },
 };
 
 export const Running: Story = {
   args: {
-    isPlaying: true,
+    time: '05:23',
   },
 };
 
-export const Interactive: Story = {
-  render: (args) => {
-    const timerRef = useRef<{ getTime: () => string }>(null);
-    
-    return (
-      <div className="space-y-4">
-        <Timer {...args} ref={timerRef} />
-        <button
-          onClick={() => {
-            const time = timerRef.current?.getTime();
-            alert(`Current time: ${time}`);
-          }}
-          className="px-4 py-2 bg-blue-500 text-white rounded"
-        >
-          Get Time
-        </button>
-      </div>
-    );
-  },
+export const LongTime: Story = {
   args: {
-    isPlaying: true,
+    time: '12:45',
+  },
+};
+
+export const WithStyling: Story = {
+  args: {
+    time: '03:15',
+    className: 'text-text-primary font-bold text-lg',
   },
 };
 

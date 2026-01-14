@@ -287,3 +287,4 @@ These five composers share common values: **restraint**, **space**, **warmth**, 
 
 The original references (Williams, Uematsu, Sakuraba) create music that leads—appropriate for narrative games and films. Schrödinger's Shapes needs music that **follows**, supporting the player's intellectual journey without getting in the way.
 
+

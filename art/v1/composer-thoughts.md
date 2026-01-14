@@ -167,3 +167,4 @@ A successful soundtrack for *Schrödinger's Shapes* needs:
 
 The music should feel like a natural extension of the game's "intellectual and mysteriously playful" atmosphere—sophisticated enough to match the quantum theme, memorable enough to create emotional attachment, and subtle enough to support focused puzzle-solving.
 
+

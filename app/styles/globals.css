@@ -1,37 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --text-primary: #1a1a1a;
-  --text-secondary: #64748b;
+  --background: #0a0e27;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a8c0;
   
-  /* Shape colors */
+  /* Shape colors - neon accents */
   --shape-square: #FFB5BA;  /* Soft pink */
-  --shape-circle: #A8D8FF;  /* Soft blue */
+  --shape-circle: #4FC3F7;  /* Bright neon blue */
   --shape-triangle: #FFE5B4; /* Soft yellow */
   
   /* Cell colors */
-  --cell-bg: #ffffff;
-  --cell-hover: #f1f5f9;
-  --cell-border: #e2e8f0;
+  --cell-bg: rgba(79, 195, 247, 0.1);
+  --cell-hover: rgba(79, 195, 247, 0.2);
+  --cell-border: rgba(79, 195, 247, 0.3);
   
   /* Panel colors */
-  --panel-bg: #ffffff;
+  --panel-bg: rgba(79, 195, 247, 0.1);
+  
+  /* Purple accent for panels */
+  --purple-panel: #6B46C1;
+  --purple-dark: #4C1D95;
+  --neon-blue: #00D9FF;
+  --neon-pink: #FF00FF;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: var(--background);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  background-image: url('/art/bg1.jpg');
-  background-image: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url('/art/bg1.jpg');
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url('/art/lab_bg_01_dk.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .nav-button {
@@ -73,29 +79,40 @@ body {
 }
 
 .floating-panel {
-  background-color: rgb(186 230 253);
+  background: rgba(79, 195, 247, 0.15);
   border-radius: 2rem;
-  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-  border: 1px solid rgb(229 231 235 / 0.2);
-  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 0 40px rgba(79, 195, 247, 0.4),
+    0 25px 50px -12px rgba(0, 0, 0 / 0.5),
+    inset 0 0 60px rgba(79, 195, 247, 0.1),
+    0 0 0 2px rgba(79, 195, 247, 0.4),
+    0 0 0 4px rgba(255, 0, 255, 0.2);
+  border: 2px solid rgba(79, 195, 247, 0.4);
+  backdrop-filter: blur(12px);
+  position: relative;
 }
 
 .grid-cell {
-  background-color: white;
+  background: rgba(79, 195, 247, 0.1);
   border-radius: 1rem;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow: 
+    0 0 10px rgba(79, 195, 247, 0.2),
+    inset 0 0 20px rgba(79, 195, 247, 0.05);
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  border: 1px solid rgb(229 231 235 / 0.2);
+  border: 1px solid rgba(79, 195, 247, 0.3);
   min-width: 0;
   min-height: 0;
 }
 
 .grid-cell:hover {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  box-shadow: 
+    0 0 20px rgba(79, 195, 247, 0.4),
+    inset 0 0 30px rgba(79, 195, 247, 0.1);
+  border-color: rgba(79, 195, 247, 0.6);
 }
 
 @media (min-width: 768px) {
@@ -104,11 +121,44 @@ body {
   }
 }
 
+/* Art-based grid cell using shape_cell_01.png */
+.grid-cell-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  min-width: 0;
+  min-height: 0;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.grid-cell-art:hover {
+  filter: brightness(1.1);
+}
+
+@media (min-width: 768px) {
+  .grid-cell-art {
+    padding: 0.75rem;
+  }
+}
+
+/* Board frame using 9-slice from board_3x2_sliceable.png */
+.board-frame {
+  position: relative;
+  box-shadow: 
+    0 0 60px rgba(79, 195, 247, 0.3),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
 .inner-panel {
-  background-color: rgb(249 250 251 / 0.8);
+  background: linear-gradient(135deg, rgba(107, 70, 193, 0.9), rgba(75, 29, 149, 0.9));
   border-radius: 1rem;
   padding: 1rem;
-  border: 1px solid rgb(229 231 235 / 0.2);
+  border: 2px solid rgba(107, 70, 193, 0.6);
+  box-shadow: 
+    0 0 20px rgba(107, 70, 193, 0.4),
+    inset 0 0 30px rgba(107, 70, 193, 0.2);
+  backdrop-filter: blur(8px);
 }
 
 @media (min-width: 768px) {
@@ -152,4 +202,43 @@ body {
   top: 40%;
   left: 60%;
   background: var(--shape-triangle);
-} 
+}
+
+/* Glitch animation for quantum shapes */
+@keyframes glitch {
+  0%, 100% {
+    transform: translate(0);
+    opacity: 0.6;
+  }
+  20% {
+    transform: translate(-2px, 2px);
+    opacity: 0.8;
+  }
+  40% {
+    transform: translate(2px, -2px);
+    opacity: 0.7;
+  }
+  60% {
+    transform: translate(-1px, 1px);
+    opacity: 0.9;
+  }
+  80% {
+    transform: translate(1px, -1px);
+    opacity: 0.6;
+  }
+}
+
+.glitch-overlay {
+  animation: glitch 3s infinite;
+}
+
+/* Font utility classes */
+.title, .btn-primary {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+}
+
+.ui-text, .rules-list, .timer {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+}

@@ -65,7 +65,7 @@ export const MainMenu: React.FC = () => {
             >
               <Link to="/game" className="block">
                 <motion.button
-                  className="w-full py-4 px-8 bg-panel-bg text-text-primary rounded-xl font-bold text-lg hover:bg-cell-hover transition-colors border border-cell-border"
+                  className="w-full py-4 px-8 bg-panel-bg text-text-primary rounded-xl font-fredoka font-bold text-lg hover:bg-cell-hover transition-colors border border-cell-border"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -75,7 +75,7 @@ export const MainMenu: React.FC = () => {
 
               <Link to="/tutorial" className="block">
                 <motion.button
-                  className="w-full py-4 px-8 bg-panel-bg text-text-primary rounded-xl font-bold text-lg hover:bg-cell-hover transition-colors border border-cell-border"
+                  className="w-full py-4 px-8 bg-panel-bg text-text-primary rounded-xl font-fredoka font-bold text-lg hover:bg-cell-hover transition-colors border border-cell-border"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >

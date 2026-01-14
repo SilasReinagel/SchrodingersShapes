@@ -32,9 +32,9 @@ const meta = {
       action: 'closed',
       description: 'Callback when modal is closed',
     },
-    onNextPuzzle: {
-      action: 'next-puzzle',
-      description: 'Callback when next puzzle is requested',
+    onNextLevel: {
+      action: 'next-level',
+      description: 'Callback when next level is requested',
     },
   },
 } satisfies Meta<typeof VictoryModal>;
@@ -48,7 +48,7 @@ export const Default: Story = {
     moves: 15,
     time: '02:34',
     onClose: () => {},
-    onNextPuzzle: () => {},
+    onNextLevel: () => {},
   },
   render: (args) => {
     const [isOpen, setIsOpen] = useState(args.isOpen);
@@ -62,8 +62,8 @@ export const Default: Story = {
             args.onClose();
             setIsOpen(false);
           }}
-          onNextPuzzle={() => {
-            args.onNextPuzzle();
+          onNextLevel={() => {
+            args.onNextLevel();
             setIsOpen(false);
           }}
         />
@@ -86,7 +86,7 @@ export const LowMoves: Story = {
     moves: 8,
     time: '01:12',
     onClose: () => {},
-    onNextPuzzle: () => {},
+    onNextLevel: () => {},
   },
   render: (args) => {
     const [isOpen, setIsOpen] = useState(true);
@@ -100,8 +100,8 @@ export const LowMoves: Story = {
             args.onClose();
             setIsOpen(false);
           }}
-          onNextPuzzle={() => {
-            args.onNextPuzzle();
+          onNextLevel={() => {
+            args.onNextLevel();
             setIsOpen(false);
           }}
         />
@@ -124,7 +124,7 @@ export const HighMoves: Story = {
     moves: 42,
     time: '05:23',
     onClose: () => {},
-    onNextPuzzle: () => {},
+    onNextLevel: () => {},
   },
   render: (args) => {
     const [isOpen, setIsOpen] = useState(true);
@@ -138,8 +138,8 @@ export const HighMoves: Story = {
             args.onClose();
             setIsOpen(false);
           }}
-          onNextPuzzle={() => {
-            args.onNextPuzzle();
+          onNextLevel={() => {
+            args.onNextLevel();
             setIsOpen(false);
           }}
         />
@@ -162,7 +162,7 @@ export const LongTime: Story = {
     moves: 25,
     time: '12:45',
     onClose: () => {},
-    onNextPuzzle: () => {},
+    onNextLevel: () => {},
   },
   render: (args) => {
     const [isOpen, setIsOpen] = useState(true);
@@ -176,8 +176,8 @@ export const LongTime: Story = {
             args.onClose();
             setIsOpen(false);
           }}
-          onNextPuzzle={() => {
-            args.onNextPuzzle();
+          onNextLevel={() => {
+            args.onNextLevel();
             setIsOpen(false);
           }}
         />

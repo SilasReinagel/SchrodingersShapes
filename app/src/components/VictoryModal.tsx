@@ -8,7 +8,7 @@ interface VictoryModalProps {
   onClose: () => void;
   moves: number;
   time: string;
-  onNextPuzzle: () => void;
+  onNextLevel: () => void;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
@@ -16,7 +16,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onClose,
   moves,
   time,
-  onNextPuzzle,
+  onNextLevel,
 }) => {
   const { width, height } = useWindowSize();
 
@@ -59,20 +59,20 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           />
         )}
         
-        <h2 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle bg-clip-text text-transparent">
+        <h2 className="text-4xl font-fredoka font-bold mb-8 text-center bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle bg-clip-text text-transparent">
           Puzzle Solved!
         </h2>
         
         <div className="space-y-6 mb-8">
           <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
-            <span className="text-gray-800 font-medium">Moves</span>
-            <span className="text-3xl font-bold text-gray-900">
+            <span className="text-gray-800 font-nunito font-bold">Moves</span>
+            <span className="text-3xl font-nunito font-bold text-gray-900">
               {moves}
             </span>
           </div>
           <div className="flex justify-between items-center bg-gray-100 rounded-xl p-4">
-            <span className="text-gray-800 font-medium">Time</span>
-            <span className="text-3xl font-bold text-gray-900">
+            <span className="text-gray-800 font-nunito font-bold">Time</span>
+            <span className="text-3xl font-nunito font-bold text-gray-900">
               {time}
             </span>
           </div>
@@ -82,16 +82,16 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={onNextPuzzle}
-            className="w-full py-4 px-6 bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle text-white rounded-xl font-bold text-lg hover:opacity-90 transition-opacity shadow-lg"
+            onClick={onNextLevel}
+            className="w-full py-4 px-6 bg-gradient-to-r from-shape-square via-shape-circle to-shape-triangle text-white rounded-xl font-fredoka font-bold text-lg hover:opacity-90 transition-opacity shadow-lg"
           >
-            Next Puzzle
+            Next Level
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onClose}
-            className="w-full py-4 px-6 bg-gray-100 text-gray-800 rounded-xl font-bold text-lg hover:bg-gray-200 transition-colors"
+            className="w-full py-4 px-6 bg-gray-100 text-gray-800 rounded-xl font-fredoka font-bold text-lg hover:bg-gray-200 transition-colors"
           >
             Keep Playing
           </motion.button>

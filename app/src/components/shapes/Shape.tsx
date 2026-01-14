@@ -60,7 +60,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
 
   return (
     <motion.div
-      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''}`}
+      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative`}
       initial={{ scale: 0.8, opacity: isLocked ? 0.5 : 0 }}
       animate={{ scale: 1, opacity: isLocked ? 0.5 : 1 }}
       transition={{ 
@@ -69,10 +69,25 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
         damping: 25
       }}
     >
+      {/* Glitch effect overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none glitch-overlay"
+        style={{
+          background: `
+            linear-gradient(90deg, transparent 0%, rgba(255, 0, 0, 0.3) 50%, transparent 100%),
+            linear-gradient(0deg, transparent 0%, rgba(0, 217, 255, 0.3) 50%, transparent 100%)
+          `,
+          mixBlendMode: 'screen',
+          opacity: 0.6
+        }}
+      />
       <img 
         src={style.image} 
         alt={String(type)} 
-        className="w-full h-full object-contain p-1"
+        className="w-full h-full object-contain p-1 relative z-10"
+        style={{
+          filter: 'drop-shadow(0 0 4px rgba(255, 0, 0, 0.5)) drop-shadow(0 0 4px rgba(0, 217, 255, 0.5))'
+        }}
       />
     </motion.div>
   );

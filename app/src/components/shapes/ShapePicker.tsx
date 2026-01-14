@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShapeId } from '../../game/types';
 import { Shape } from './Shape';
@@ -11,7 +12,7 @@ interface ShapePickerProps {
 const shapes: Exclude<ShapeId, 0>[] = [1, 2, 3];
 
 export const ShapePicker: React.FC<ShapePickerProps> = ({ position, onSelect, onClose }) => {
-  return (
+  return createPortal(
     <AnimatePresence>
       <div 
         className="fixed inset-0 z-50"
@@ -21,11 +22,14 @@ export const ShapePicker: React.FC<ShapePickerProps> = ({ position, onSelect, on
         }}
       >
         <motion.div
-          className="absolute bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100/20 flex gap-3 p-3"
+          className="fixed backdrop-blur-sm rounded-2xl flex gap-3 p-3"
           style={{
             left: position.x,
             top: position.y,
-            zIndex: 100
+            zIndex: 100,
+            background: 'rgba(79, 195, 247, 0.2)',
+            border: '2px solid rgba(79, 195, 247, 0.5)',
+            boxShadow: '0 0 30px rgba(79, 195, 247, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5)'
           }}
           initial={{ scale: 0.9, opacity: 0, y: 8 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -35,15 +39,28 @@ export const ShapePicker: React.FC<ShapePickerProps> = ({ position, onSelect, on
         >
           {/* Arrow */}
           <div 
-            className="absolute left-1/2 bottom-0 w-3 h-3 bg-white/95 border-b border-r border-gray-100/20 transform -translate-x-1/2 translate-y-1/2 rotate-45"
-            style={{ backdropFilter: 'blur(8px)' }}
+            className="absolute left-1/2 bottom-0 w-3 h-3 transform -translate-x-1/2 translate-y-1/2 rotate-45"
+            style={{ 
+              background: 'rgba(79, 195, 247, 0.2)',
+              borderBottom: '2px solid rgba(79, 195, 247, 0.5)',
+              borderRight: '2px solid rgba(79, 195, 247, 0.5)',
+              backdropFilter: 'blur(8px)'
+            }}
           />
 
           {shapes.map((shape) => (
             <motion.button
               key={shape}
-              className="w-14 h-14 rounded-xl hover:bg-white flex items-center justify-center"
-              whileHover={{ scale: 1.1 }}
+              className="w-14 h-14 rounded-xl flex items-center justify-center transition-all"
+              style={{
+                background: 'rgba(79, 195, 247, 0.1)',
+                border: '1px solid rgba(79, 195, 247, 0.3)'
+              }}
+              whileHover={{ 
+                scale: 1.1,
+                background: 'rgba(79, 195, 247, 0.3)',
+                boxShadow: '0 0 15px rgba(79, 195, 247, 0.5)'
+              }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onSelect(shape)}
             >
@@ -54,6 +71,7 @@ export const ShapePicker: React.FC<ShapePickerProps> = ({ position, onSelect, on
           ))}
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }; 

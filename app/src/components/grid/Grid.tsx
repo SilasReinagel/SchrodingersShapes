@@ -17,6 +17,18 @@ interface PickerState {
   col: number;
 }
 
+// Board padding for the sliceable frame (x = horizontal, y = vertical)
+const BOARD_PADDING_X = 30;
+const BOARD_PADDING_Y = 56;
+
+// 9-slice border image settings
+// The slice value determines how much of each corner is preserved (in pixels from the source image)
+// board_3x2_sliceable.png is 1024x768, corners appear to be ~60px
+const BORDER_SLICE = 60;
+
+// Content Y offset to account for asymmetric padding in the board image (top has more than bottom)
+const CONTENT_OFFSET_Y = 5;
+
 export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [picker, setPicker] = useState<PickerState>({
@@ -31,16 +43,15 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
     if (cell.shape === 0 && !cell.locked) { // 0 is CatShape
       const cellElement = event.currentTarget as HTMLElement;
       const rect = cellElement.getBoundingClientRect();
-      const gridRect = gridRef.current?.getBoundingClientRect() || rect;
       
       // Get picker dimensions (assuming our standard sizes from ShapePicker)
       const PICKER_WIDTH = 3 * 56 + 36; // 3 buttons (w-14=56px) + gaps and padding
       const PICKER_HEIGHT = 56 + 24; // 1 button height + padding
       const GAP = 12; // Space between cell and picker
       
-      // Calculate position relative to the grid
-      const x = rect.left - gridRect.left + (rect.width / 2) - (PICKER_WIDTH / 2);
-      const y = rect.top - gridRect.top - PICKER_HEIGHT - GAP;
+      // Calculate position relative to viewport (picker is portaled to document.body)
+      const x = rect.left + (rect.width / 2) - (PICKER_WIDTH / 2);
+      const y = rect.top - PICKER_HEIGHT - GAP;
 
       setPicker({
         isOpen: true,
@@ -76,39 +87,56 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
 
   const cellSize = getCellSize();
   const gap = Math.max(8, cellSize * 0.1); // Gap proportional to cell size, minimum 8px
+  const paddingX = BOARD_PADDING_X;
+  const paddingY = BOARD_PADDING_Y;
+
+  // Calculate the total grid content size
+  const gridContentWidth = width * cellSize + (width - 1) * gap;
+  const gridContentHeight = height * cellSize + (height - 1) * gap;
 
   return (
     <motion.div
       ref={gridRef}
-      className="floating-panel relative flex items-center justify-center p-4 sm:p-6"
+      className="board-frame relative flex items-center justify-center"
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       style={{
-        width: 'fit-content',
-        height: 'fit-content',
+        width: gridContentWidth + paddingX * 2,
+        height: gridContentHeight + paddingY * 2,
         maxWidth: '100%',
-        maxHeight: '100%'
+        maxHeight: '100%',
+        padding: `${paddingY}px ${paddingX}px`,
+        // 9-slice border image - corners stay fixed, edges and center stretch
+        borderStyle: 'solid',
+        borderWidth: `${paddingY}px ${paddingX}px`,
+        borderImageSource: 'url(/art/board_3x2_sliceable.png)',
+        borderImageSlice: `${BORDER_SLICE} fill`,
+        borderImageRepeat: 'stretch',
       }}
     >
       <div 
-        className="grid"
+        className="grid relative z-10"
         style={{ 
           gridTemplateColumns: `repeat(${width}, ${cellSize}px)`,
           gridTemplateRows: `repeat(${height}, ${cellSize}px)`,
           gap: `${gap}px`,
           width: 'fit-content',
-          height: 'fit-content'
+          height: 'fit-content',
+          transform: `translateY(${CONTENT_OFFSET_Y}px)`,
         }}
       >
         {grid.map((row, rowIndex) => (
           row.map((cell, colIndex) => (
             <motion.div
               key={`${rowIndex}-${colIndex}`}
-              className={`grid-cell ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
+              className={`grid-cell-art ${cell.shape === 0 && !cell.locked ? 'cursor-pointer' : ''}`}
               style={{ 
                 width: `${cellSize}px`, 
-                height: `${cellSize}px` 
+                height: `${cellSize}px`,
+                backgroundImage: 'url(/art/shape_cell_01.png)',
+                backgroundSize: '100% 100%',
+                backgroundRepeat: 'no-repeat',
               }}
               whileHover={cell.shape === 0 && !cell.locked ? { scale: 1.02 } : undefined}
               whileTap={cell.shape === 0 && !cell.locked ? { scale: 0.98 } : undefined}
