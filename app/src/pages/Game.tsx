@@ -21,7 +21,7 @@ export const Game: React.FC = () => {
   // Show loading state if puzzle is not yet initialized
   if (!isLoaded) {
     return (
-      <div className="h-screen flex items-center justify-center bg-transparent">
+      <div className="h-screen w-screen flex items-center justify-center bg-transparent">
         <div className="text-xl text-white">Loading puzzle...</div>
       </div>
     );
@@ -30,39 +30,46 @@ export const Game: React.FC = () => {
   if (!puzzle) return null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent overflow-x-hidden">
-      <div className="h-screen text-white relative overflow-x-hidden flex flex-col">
-        <TopBar />
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden">
+      {/* Overlay Layer - Title & Author (z-30) */}
+      <TopBar />
+      
+      {/* Overlay Layer - Footer Controls (z-30) */}
+      <BottomBar />
 
-        {/* Main Content */}
-        <main className="flex-1 container mx-auto px-4 py-2 relative z-10 flex items-center justify-center pt-20 pb-20">
-          <div className="flex flex-col lg:flex-row items-start justify-center gap-4 lg:gap-8 w-full max-h-[calc(100vh-120px)] relative overflow-x-hidden overflow-y-visible">
-            {/* Puzzle Grid Container */}
-            <div className="w-full lg:w-auto flex-shrink-0 flex justify-center lg:flex-1 overflow-visible">
-              <div className="w-full max-w-2xl lg:max-w-4xl h-auto overflow-visible" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-                <Grid 
-                  grid={puzzle.currentBoard}
-                  onCellClick={handleCellClick}
-                  onShapeSelect={handleShapeSelect}
-                />
-              </div>
+      {/* Main Game Layer - Full viewport, behind overlays */}
+      <main className="w-full h-full flex items-center justify-center text-white">
+        {/* Symmetric Game Layout Container */}
+        <div 
+          className="w-full h-full flex items-center justify-center"
+          style={{
+            // Padding to keep content away from overlay areas
+            paddingTop: '80px',
+            paddingBottom: '80px',
+            paddingLeft: '40px',
+            paddingRight: '40px',
+          }}
+        >
+          {/* Game Content - Grid on left/center, Constraints on right */}
+          <div className="flex items-center justify-center gap-8 w-full h-full max-w-[1800px]">
+            {/* Left spacer for symmetry on large screens */}
+            <div className="hidden xl:block flex-1" />
+            
+            {/* Puzzle Grid - Centered */}
+            <div className="flex-shrink-0 flex items-center justify-center">
+              <Grid 
+                grid={puzzle.currentBoard}
+                onCellClick={handleCellClick}
+                onShapeSelect={handleShapeSelect}
+              />
             </div>
-
-            {/* Constraints Panel */}
-            {/* TODO: Mobile layout - needs positioning strategy for smaller screens */}
+            
+            {/* Constraints Panel - Right side */}
             <div 
-              className="w-full lg:fixed overflow-y-auto overflow-x-hidden flex-shrink-0"
+              className="flex-shrink-0 flex items-center justify-center h-full"
               style={{
-                // On wide layouts (lg breakpoint and above), anchor to right by 60/1920 of viewport width
-                // 60/1920 = 3.125% of viewport width (60px on 1920px viewport)
-                // Width is 520/1920 of viewport width (520px on 1920px viewport)
-                // Vertically centered, max height is 80vh
-                right: 'calc(60 / 1920 * 100vw)',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: 'clamp(0px, calc(520 / 1920 * 100vw), calc(520 / 1920 * 100vw))',
-                maxWidth: 'calc(100vw - calc(60 / 1920 * 100vw) - 1rem)',
-                maxHeight: '80vh',
+                width: 'clamp(280px, 25vw, 400px)',
+                maxHeight: 'calc(100vh - 200px)',
               }}
             >
               <ConstraintsPanel 
@@ -72,18 +79,20 @@ export const Game: React.FC = () => {
                 boardHeight={puzzle.currentBoard.length}
               />
             </div>
+            
+            {/* Right spacer for symmetry - hidden, constraints takes this space */}
+            <div className="hidden xl:block flex-1" />
           </div>
-        </main>
+        </div>
+      </main>
 
-        {/* Victory Modal */}
-        <VictoryModal
-          isOpen={showVictory}
-          onClose={handleCloseVictory}
-          time={timer}
-          onNextLevel={handleNextLevel}
-        />
-      </div>
-      <BottomBar />
+      {/* Victory Modal */}
+      <VictoryModal
+        isOpen={showVictory}
+        onClose={handleCloseVictory}
+        time={timer}
+        onNextLevel={handleNextLevel}
+      />
     </div>
   );
-}; 
+};

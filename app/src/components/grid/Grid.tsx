@@ -33,6 +33,12 @@ const BORDER_SLICE = 60;
 // Content Y offset to account for asymmetric padding in the board image (top has more than bottom)
 const CONTENT_OFFSET_Y = 5;
 
+// Reference dimensions for consistent board sizing across all difficulties
+// All boards will be scaled to match the height of a 4-row board (the largest)
+const REFERENCE_ROWS = 4;
+const REFERENCE_CELL_SIZE = 100; // Base cell size before viewport adjustments
+const REFERENCE_GAP_RATIO = 0.1; // Gap as percentage of cell size
+
 export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [picker, setPicker] = useState<PickerState>({
@@ -111,30 +117,54 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
     };
   }, []);
 
-  // Memoize cell size calculation to avoid recalculating on every render
-  const cellSize = useMemo(() => {
+  // Memoize board dimensions and scale for consistent height across all difficulties
+  const { cellSize, gap, scale } = useMemo(() => {
     const viewportWidth = viewportSize.width;
     const viewportHeight = viewportSize.height;
     
-    // Base cell sizes for different screen sizes
-    let baseCellSize: number;
+    // Calculate target board height based on viewport
+    // This is the height we want ALL boards to match (based on a 4-row reference)
+    let targetCellSize: number;
     if (viewportWidth < 640) { // mobile
-      baseCellSize = Math.min(80, (viewportWidth - 80) / Math.max(width, height));
+      targetCellSize = Math.min(80, (viewportWidth - 80) / REFERENCE_ROWS);
     } else if (viewportWidth < 1024) { // tablet
-      baseCellSize = Math.min(100, (viewportWidth - 200) / Math.max(width, height));
+      targetCellSize = Math.min(100, (viewportWidth - 200) / REFERENCE_ROWS);
     } else { // desktop
-      baseCellSize = Math.min(120, (viewportHeight - 200) / Math.max(width, height));
+      targetCellSize = Math.min(120, (viewportHeight - 200) / REFERENCE_ROWS);
     }
+    targetCellSize = Math.max(60, targetCellSize);
     
-    return Math.max(60, baseCellSize); // Minimum cell size of 60px
-  }, [viewportSize.width, viewportSize.height, width, height]);
-  const gap = Math.max(8, cellSize * 0.1); // Gap proportional to cell size, minimum 8px
+    const targetGap = Math.max(8, targetCellSize * REFERENCE_GAP_RATIO);
+    const targetBoardHeight = REFERENCE_ROWS * targetCellSize + (REFERENCE_ROWS - 1) * targetGap + BOARD_PADDING_Y * 2;
+    
+    // Use a consistent cell size for the actual grid (makes cells look uniform)
+    const actualCellSize = REFERENCE_CELL_SIZE;
+    const actualGap = Math.max(8, actualCellSize * REFERENCE_GAP_RATIO);
+    
+    // Calculate the actual board height for this grid
+    const actualBoardHeight = height * actualCellSize + (height - 1) * actualGap + BOARD_PADDING_Y * 2;
+    
+    // Scale factor to make this board match the target height
+    const scale = targetBoardHeight / actualBoardHeight;
+    
+    return {
+      cellSize: actualCellSize,
+      gap: actualGap,
+      scale,
+      targetBoardHeight
+    };
+  }, [viewportSize.width, viewportSize.height, height]);
+
   const paddingX = BOARD_PADDING_X;
   const paddingY = BOARD_PADDING_Y;
 
-  // Calculate the total grid content size
+  // Calculate the total grid content size (before scaling)
   const gridContentWidth = width * cellSize + (width - 1) * gap;
   const gridContentHeight = height * cellSize + (height - 1) * gap;
+  
+  // Calculate scaled dimensions for the wrapper
+  const scaledWidth = (gridContentWidth + paddingX * 2) * scale;
+  const scaledHeight = (gridContentHeight + paddingY * 2) * scale;
 
   // Generate cellId for layoutId matching
   const getCellId = (row: number, col: number) => `cell-${row}-${col}`;
@@ -142,19 +172,25 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   return (
     <LayoutGroup>
       {/* Wrapper div with margin to allow glow to show - glow extends ~30px outward */}
-      {/* Using inline-flex to ensure proper sizing while allowing overflow */}
-      <div style={{ margin: '40px', display: 'inline-flex', overflow: 'visible' }}>
+      {/* Using explicit dimensions to account for scaling */}
+      <div style={{ 
+        margin: '40px', 
+        display: 'inline-flex', 
+        overflow: 'visible',
+        width: scaledWidth,
+        height: scaledHeight,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
         <motion.div
           ref={gridRef}
           className="board-frame relative flex items-center justify-center"
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 0.8 }}
+          initial={{ scale: 0.95 * scale, opacity: 0 }}
+          animate={{ scale: scale, opacity: 0.8 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
           style={{
             width: gridContentWidth + paddingX * 2,
             height: gridContentHeight + paddingY * 2,
-            maxWidth: '100%',
-            maxHeight: '100%',
             padding: `${paddingY}px ${paddingX}px`,
             // 9-slice border image - corners stay fixed, edges and center stretch
             borderStyle: 'solid',
@@ -165,6 +201,7 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
             // Use only filter drop-shadow - follows the actual rendered shape
             // box-shadow creates rectangular glow that doesn't match rounded corners
             filter: createGridGlowFilter(),
+            transformOrigin: 'center center',
           }}
         >
           {/* Animated diagonal shine overlay - covers frame + board (hidden for now)

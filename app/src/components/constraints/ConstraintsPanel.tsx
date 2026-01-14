@@ -29,35 +29,38 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
 
   return (
     <motion.div
-      className="w-full max-w-full overflow-x-hidden h-full flex flex-col"
+      className="w-full h-full flex flex-col items-center justify-center"
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <div 
-        className="p-4 md:p-6 space-y-2 flex-1"
-        style={{
-          borderImageSource: 'url(/art/panel_constraint_01.png)',
-          borderImageSlice: '64 fill',
-          borderImageWidth: '0.5',
-          borderImageRepeat: 'stretch',
-          borderStyle: 'solid',
-          borderWidth: '55px',
-          minHeight: '100%',
-          // Use filter drop-shadow for consistent glow that works with border-image
-          filter: createGlowFilter(),
-        }}
-      >
-        {constraints.map((constraint, index) => (
-          <ConstraintRow
-            key={index}
-            constraint={constraint}
-            status={constraintStates[index]}
-            index={index}
-            boardWidth={boardWidth}
-            boardHeight={boardHeight}
-          />
-        ))}
+      {/* Outer wrapper with padding for glow effect visibility */}
+      <div className="p-8">
+        <div 
+          className="p-4 md:p-5 space-y-2 overflow-y-auto overflow-x-hidden"
+          style={{
+            borderImageSource: 'url(/art/panel_constraint_01.png)',
+            borderImageSlice: '64 fill',
+            borderImageWidth: '0.5',
+            borderImageRepeat: 'stretch',
+            borderStyle: 'solid',
+            borderWidth: '55px',
+            maxHeight: 'calc(100vh - 240px)',
+            // Use filter drop-shadow for consistent glow that works with border-image
+            filter: createGlowFilter(),
+          }}
+        >
+          {constraints.map((constraint, index) => (
+            <ConstraintRow
+              key={index}
+              constraint={constraint}
+              status={constraintStates[index]}
+              index={index}
+              boardWidth={boardWidth}
+              boardHeight={boardHeight}
+            />
+          ))}
+        </div>
       </div>
     </motion.div>
   );

@@ -19,7 +19,7 @@ export const BottomBar: React.FC = () => {
   };
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-16 bg-panel-bg z-10">
+    <footer className="fixed bottom-0 left-0 right-0 h-16 bg-panel-bg/90 backdrop-blur-sm z-30 border-t border-white/10">
       <div className="max-w-4xl mx-auto h-full flex items-center justify-between px-4 md:px-6">
         {/* Left: Difficulty Selector */}
         <div className="flex items-center gap-3">

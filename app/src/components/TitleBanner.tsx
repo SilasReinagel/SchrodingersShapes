@@ -5,7 +5,7 @@ import { GLOW_COLORS } from '../constants/glowColors';
 export const TitleBanner: React.FC = () => {
   return (
     <div 
-      className="fixed top-0 left-0 z-20 pointer-events-auto"
+      className="fixed top-0 left-0 z-30 pointer-events-auto"
       style={{
         filter: 'drop-shadow(0 4px 12px rgba(79, 195, 247, 0.3)) drop-shadow(0 0 20px rgba(10, 26, 58, 0.8))',
       }}
