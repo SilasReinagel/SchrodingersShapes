@@ -2,12 +2,18 @@
  * Schrödinger's Shapes - Puzzle Generator Implementation
  * 
  * Solution-first generation ensures all puzzles are solvable by construction.
+ * 
+ * Optimizations:
+ * 1. Reusable solver context (avoids repeated malloc/free)
+ * 2. Early exit at 2 solutions (don't count beyond what's needed)
+ * 3. Parallel generation (try multiple solution boards concurrently)
  */
 
 #include "generator.h"
 #include "solver.h"
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
 
 // Fact types for constraint selection
 typedef enum {
@@ -45,6 +51,9 @@ static const struct {
     {3, 4, 5, 25, 1, 2}, // Level 4: 3x4, 1 cat, 2 locked
     {4, 4, 6, 30, 2, 3}, // Level 5: 4x4, 2 cats, 3 locked
 };
+
+// Number of parallel workers for generation
+#define NUM_WORKERS 4
 
 GeneratorConfig generator_default_config(Difficulty level) {
     GeneratorConfig config = {0};
@@ -324,10 +333,12 @@ static int score_fact(const Fact* fact, const GeneratorConfig* config) {
 
 /**
  * Select constraints to create a uniquely solvable puzzle
+ * Uses reusable solver context for efficiency
  */
 static bool select_constraints(const GeneratorConfig* config, RNG* rng, 
                               const uint8_t* solution_board, Fact* facts, 
-                              int num_facts, Puzzle* puzzle) {
+                              int num_facts, Puzzle* puzzle,
+                              SolverContext* solver_ctx) {
     (void)solution_board; // Unused for now
     
     // Shuffle facts with weighted selection
@@ -375,11 +386,14 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
         
         // Reset board to all cats for solve check
         for (int j = 0; j < total_cells; j++) {
-            puzzle->board[j] = SHAPE_CAT;
+            if (!is_locked(puzzle, j)) {
+                puzzle->board[j] = SHAPE_CAT;
+            }
         }
         
-        // Check solution count
-        SolverResult result = solver_solve(puzzle, false);
+        // Check solution count - OPTIMIZATION: stop at 2 solutions
+        // We only need to know if it's 0, 1, or more than 1
+        SolverResult result = solver_solve_ex(solver_ctx, puzzle, 2);
         
         if (g_debug && puzzle->num_constraints <= 5) {
             printf("    [DEBUG] After constraint %d: %llu solutions\n", 
@@ -391,7 +405,9 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
             if (puzzle->num_constraints >= config->min_constraints) {
                 // Reset board for return
                 for (int j = 0; j < total_cells; j++) {
-                    puzzle->board[j] = SHAPE_CAT;
+                    if (!is_locked(puzzle, j)) {
+                        puzzle->board[j] = SHAPE_CAT;
+                    }
                 }
                 return true;
             }
@@ -408,11 +424,13 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
     
     // Final check - reset board first
     for (int j = 0; j < total_cells; j++) {
-        puzzle->board[j] = SHAPE_CAT;
+        if (!is_locked(puzzle, j)) {
+            puzzle->board[j] = SHAPE_CAT;
+        }
     }
     solver_precompute_masks(puzzle);
     
-    SolverResult result = solver_solve(puzzle, false);
+    SolverResult result = solver_solve_ex(solver_ctx, puzzle, 2);
     return result.solution_count == 1;
 }
 
@@ -454,10 +472,151 @@ static void add_locked_cells(const GeneratorConfig* config, RNG* rng,
     }
 }
 
-bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* puzzle) {
-    if (!config || !puzzle) return false;
-    if (config->width > MAX_WIDTH || config->height > MAX_HEIGHT) return false;
+// =============================================================================
+// Parallel Generation Support
+// =============================================================================
+
+typedef struct {
+    const GeneratorConfig* config;
+    uint64_t seed;
+    int attempt_offset;
+    Puzzle result_puzzle;
+    bool success;
+    bool done;
+} WorkerArgs;
+
+// Shared state for parallel workers
+typedef struct {
+    pthread_mutex_t mutex;
+    bool found_solution;
+    Puzzle* result;
+} SharedState;
+
+static SharedState* g_shared_state = NULL;
+
+/**
+ * Worker thread function for parallel generation
+ */
+static void* generation_worker(void* arg) {
+    WorkerArgs* args = (WorkerArgs*)arg;
+    const GeneratorConfig* config = args->config;
     
+    // Each worker gets its own RNG with a different seed offset
+    RNG rng;
+    rng_init(&rng, args->seed + args->attempt_offset * 1000);
+    
+    // Each worker gets its own solver context for efficiency
+    SolverContext* solver_ctx = solver_context_create();
+    if (!solver_ctx) {
+        args->success = false;
+        args->done = true;
+        return NULL;
+    }
+    
+    // Initialize puzzle
+    Puzzle puzzle = {0};
+    puzzle.width = config->width;
+    puzzle.height = config->height;
+    
+    // Try multiple solution boards
+    const int MAX_ATTEMPTS = 15;  // Each worker tries this many boards
+    
+    for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        // Check if another worker already found a solution
+        if (g_shared_state) {
+            pthread_mutex_lock(&g_shared_state->mutex);
+            bool already_found = g_shared_state->found_solution;
+            pthread_mutex_unlock(&g_shared_state->mutex);
+            if (already_found) break;
+        }
+        
+        // Generate solution board
+        uint8_t solution_board[MAX_CELLS];
+        generate_solution_board(config, &rng, solution_board);
+        
+        // Reset puzzle
+        puzzle.num_constraints = 0;
+        puzzle.locked_mask = 0;
+        for (int i = 0; i < config->width * config->height; i++) {
+            puzzle.board[i] = SHAPE_CAT;
+        }
+        
+        // Add locked cells
+        add_locked_cells(config, &rng, solution_board, &puzzle);
+        
+        // Extract facts and try to select constraints
+        Fact facts[MAX_FACTS];
+        int num_facts = extract_facts(config, solution_board, facts);
+        
+        bool success = select_constraints(config, &rng, solution_board, facts, 
+                                          num_facts, &puzzle, solver_ctx);
+        
+        if (success) {
+            // Found a valid puzzle!
+            args->result_puzzle = puzzle;
+            args->success = true;
+            
+            // Signal other workers to stop
+            if (g_shared_state) {
+                pthread_mutex_lock(&g_shared_state->mutex);
+                if (!g_shared_state->found_solution) {
+                    g_shared_state->found_solution = true;
+                    *g_shared_state->result = puzzle;
+                }
+                pthread_mutex_unlock(&g_shared_state->mutex);
+            }
+            
+            break;
+        }
+    }
+    
+    solver_context_destroy(solver_ctx);
+    args->done = true;
+    return NULL;
+}
+
+/**
+ * Generate puzzle using parallel workers
+ */
+static bool generator_generate_parallel(const GeneratorConfig* config, uint64_t seed, Puzzle* puzzle) {
+    // Initialize shared state
+    SharedState shared = {
+        .found_solution = false,
+        .result = puzzle
+    };
+    pthread_mutex_init(&shared.mutex, NULL);
+    g_shared_state = &shared;
+    
+    // Create worker threads
+    pthread_t threads[NUM_WORKERS];
+    WorkerArgs args[NUM_WORKERS];
+    
+    for (int i = 0; i < NUM_WORKERS; i++) {
+        args[i] = (WorkerArgs){
+            .config = config,
+            .seed = seed,
+            .attempt_offset = i,
+            .success = false,
+            .done = false
+        };
+        pthread_create(&threads[i], NULL, generation_worker, &args[i]);
+    }
+    
+    // Wait for all workers
+    for (int i = 0; i < NUM_WORKERS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    g_shared_state = NULL;
+    pthread_mutex_destroy(&shared.mutex);
+    
+    return shared.found_solution;
+}
+
+/**
+ * Generate puzzle - single threaded implementation
+ */
+static bool generator_generate_single(const GeneratorConfig* config, uint64_t seed, Puzzle* puzzle) {
     RNG rng;
     rng_init(&rng, seed);
     
@@ -465,6 +624,10 @@ bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* pu
     memset(puzzle, 0, sizeof(Puzzle));
     puzzle->width = config->width;
     puzzle->height = config->height;
+    
+    // Create reusable solver context
+    SolverContext* solver_ctx = solver_context_create();
+    if (!solver_ctx) return false;
     
     // Generate solution board
     uint8_t solution_board[MAX_CELLS];
@@ -495,7 +658,7 @@ bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* pu
     add_locked_cells(config, &rng, solution_board, puzzle);
     
     // Select constraints for unique solution
-    bool success = select_constraints(config, &rng, solution_board, facts, num_facts, puzzle);
+    bool success = select_constraints(config, &rng, solution_board, facts, num_facts, puzzle, solver_ctx);
     
     if (g_debug) {
         printf("  [DEBUG] First attempt: %s, constraints=%d\n", 
@@ -517,7 +680,7 @@ bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* pu
             // Add locked cells for this attempt
             add_locked_cells(config, &rng, solution_board, puzzle);
             
-            success = select_constraints(config, &rng, solution_board, facts, num_facts, puzzle);
+            success = select_constraints(config, &rng, solution_board, facts, num_facts, puzzle, solver_ctx);
             
             if (g_debug) {
                 printf("  [DEBUG] Attempt %d: %s, constraints=%d\n", 
@@ -526,7 +689,23 @@ bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* pu
         }
     }
     
+    solver_context_destroy(solver_ctx);
+    
     return success;
+}
+
+bool generator_generate(const GeneratorConfig* config, uint64_t seed, Puzzle* puzzle) {
+    if (!config || !puzzle) return false;
+    if (config->width > MAX_WIDTH || config->height > MAX_HEIGHT) return false;
+    
+    // Use parallel generation for harder levels (4x4 and up)
+    bool use_parallel = (config->width * config->height >= 12);
+    
+    if (use_parallel) {
+        return generator_generate_parallel(config, seed, puzzle);
+    } else {
+        return generator_generate_single(config, seed, puzzle);
+    }
 }
 
 bool generator_quick(Difficulty level, uint64_t seed, Puzzle* puzzle) {
@@ -537,4 +716,3 @@ bool generator_quick(Difficulty level, uint64_t seed, Puzzle* puzzle) {
 bool generator_validate_unique(Puzzle* puzzle) {
     return solver_has_unique_solution(puzzle);
 }
-

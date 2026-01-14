@@ -24,9 +24,14 @@ interface ConstraintRowProps {
 
 /**
  * Get the operator from a constraint
+ * When count is 0, display as "≠" instead of "= 0×"
  */
 const getOperator = (constraint: ConstraintDefinition): 'exactly' | 'at_least' | 'at_most' | 'none' | 'is' | 'is_not' => {
   if (isCountConstraint(constraint)) {
+    // If count is 0, treat it as 'none' to display "≠" instead of "= 0×"
+    if (constraint.rule.count === 0) {
+      return 'none';
+    }
     return constraint.rule.operator;
   }
   if (isCellConstraint(constraint)) {
@@ -55,8 +60,9 @@ const getCountDisplay = (constraint: ConstraintDefinition): string | null => {
   if (isCountConstraint(constraint)) {
     const { operator, count } = constraint.rule;
     
-    if (operator === 'none') {
-      return '0×';
+    // When count is 0, we display "≠" instead of "= 0×" or "0×"
+    if (count === 0 || operator === 'none') {
+      return null;
     }
     
     return `${count}×`;
@@ -71,11 +77,11 @@ const getCountDisplay = (constraint: ConstraintDefinition): string | null => {
  */
 const isForbidden = (constraint: ConstraintDefinition): boolean => {
   if (isCountConstraint(constraint)) {
-    return constraint.rule.operator === 'none';
+    // Show forbidden overlay for 'none' operator or when count is 0
+    return constraint.rule.operator === 'none' || constraint.rule.count === 0;
   }
-  if (isCellConstraint(constraint)) {
-    return constraint.rule.operator === 'is_not';
-  }
+  // For cell constraints with 'is_not', the ≠ symbol is sufficient
+  // so we don't need the red-line cross through
   return false;
 };
 

@@ -14,7 +14,7 @@ const operatorSymbols: Record<Operator, string> = {
   exactly: '=',
   at_least: '≥',
   at_most: '≤',
-  none: '=',      // Displayed as "= 0×"
+  none: '≠',      // Displayed as "≠" (instead of "= 0×")
   is: '=',
   is_not: '≠',
 };

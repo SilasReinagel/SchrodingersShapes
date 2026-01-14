@@ -3,11 +3,11 @@
 
 CC = clang
 CFLAGS = -O3 -march=native -flto -Wall -Wextra -std=c11
-LDFLAGS = -flto
+LDFLAGS = -flto -lpthread
 
 # Debug build
 DEBUG_CFLAGS = -g -O0 -Wall -Wextra -std=c11 -fsanitize=address,undefined
-DEBUG_LDFLAGS = -fsanitize=address,undefined
+DEBUG_LDFLAGS = -fsanitize=address,undefined -lpthread
 
 SRC = src
 BUILD = build

@@ -7,6 +7,9 @@
  * 3. Incremental constraint checking - only check affected constraints
  * 4. State hashing with zobrist-style keys for duplicate detection
  * 5. Shape ordering: concrete shapes first for faster pruning
+ * 6. Reusable solver context - avoids repeated malloc/free
+ * 7. Early exit at max_solutions - don't count beyond what's needed
+ * 8. Enhanced bounds checking for count constraints
  */
 
 #include "solver.h"
@@ -23,12 +26,20 @@ typedef struct {
     bool valid;
 } CacheEntry;
 
-// Solver context (thread-local for potential parallelization)
-typedef struct {
+// Domain: bitmask of possible shapes for each cell (computed once at start)
+#define DOMAIN_CAT      (1 << SHAPE_CAT)
+#define DOMAIN_SQUARE   (1 << SHAPE_SQUARE)
+#define DOMAIN_CIRCLE   (1 << SHAPE_CIRCLE)
+#define DOMAIN_TRIANGLE (1 << SHAPE_TRIANGLE)
+#define DOMAIN_ALL      (DOMAIN_CAT | DOMAIN_SQUARE | DOMAIN_CIRCLE | DOMAIN_TRIANGLE)
+#define DOMAIN_CONCRETE (DOMAIN_SQUARE | DOMAIN_CIRCLE | DOMAIN_TRIANGLE)
+
+// Solver context (reusable across multiple solves)
+struct SolverContext {
     Puzzle* puzzle;
     uint64_t solution_count;
+    uint64_t max_solutions;
     uint64_t states_explored;
-    bool find_first;
     bool found_solution;
     
     // State cache
@@ -36,7 +47,10 @@ typedef struct {
     
     // Pre-computed zobrist keys for hashing
     uint64_t zobrist[MAX_CELLS][SHAPE_COUNT];
-} SolverContext;
+    
+    // Domain tracking: possible shapes for each cell (computed once per solve)
+    uint8_t domains[MAX_CELLS];
+};
 
 // Initialize zobrist keys (deterministic for reproducibility)
 static void init_zobrist(SolverContext* ctx) {
@@ -49,6 +63,36 @@ static void init_zobrist(SolverContext* ctx) {
             seed ^= seed >> 27;
             ctx->zobrist[i][s] = seed * 0x2545F4914F6CDD1DULL;
         }
+    }
+}
+
+SolverContext* solver_context_create(void) {
+    SolverContext* ctx = calloc(1, sizeof(SolverContext));
+    if (!ctx) return NULL;
+    
+    ctx->cache = calloc(CACHE_SIZE, sizeof(CacheEntry));
+    if (!ctx->cache) {
+        free(ctx);
+        return NULL;
+    }
+    
+    init_zobrist(ctx);
+    return ctx;
+}
+
+void solver_context_destroy(SolverContext* ctx) {
+    if (ctx) {
+        free(ctx->cache);
+        free(ctx);
+    }
+}
+
+void solver_context_reset(SolverContext* ctx) {
+    if (ctx) {
+        memset(ctx->cache, 0, CACHE_SIZE * sizeof(CacheEntry));
+        ctx->solution_count = 0;
+        ctx->states_explored = 0;
+        ctx->found_solution = false;
     }
 }
 
@@ -98,7 +142,6 @@ static inline int count_shapes(const Puzzle* p, uint64_t mask, uint8_t target_sh
 
 /**
  * Count only committed (non-cat) shapes for early pruning
- * Cats can still change, so we don't count them as committed
  */
 static inline int count_committed_shapes(const Puzzle* p, uint64_t mask, uint8_t target_shape) {
     int count = 0;
@@ -108,6 +151,23 @@ static inline int count_committed_shapes(const Puzzle* p, uint64_t mask, uint8_t
         mask &= mask - 1;
         
         if (p->board[idx] == target_shape) {
+            count++;
+        }
+    }
+    return count;
+}
+
+/**
+ * Count cats in a region
+ */
+static inline int count_cats(const Puzzle* p, uint64_t mask) {
+    int count = 0;
+    
+    while (mask) {
+        int idx = __builtin_ctzll(mask);
+        mask &= mask - 1;
+        
+        if (p->board[idx] == SHAPE_CAT) {
             count++;
         }
     }
@@ -163,7 +223,7 @@ static bool all_constraints_satisfied(const Puzzle* p) {
 
 /**
  * Check if any constraint is definitely violated (early pruning)
- * Returns true if we can definitively prune this branch
+ * Enhanced with tighter bounds checking for count constraints
  */
 static bool has_violated_constraint(const Puzzle* p) {
     for (int i = 0; i < p->num_constraints; i++) {
@@ -178,21 +238,45 @@ static bool has_violated_constraint(const Puzzle* p) {
                 if (cell_shape == c->shape && cell_shape != SHAPE_CAT) {
                     return true;
                 }
+            } else if (c->op == OP_IS) {
+                // If cell is committed to a different concrete shape, violated
+                if (cell_shape != SHAPE_CAT && cell_shape != c->shape && c->shape != SHAPE_CAT) {
+                    return true;
+                }
             }
-            // "is" constraints can't be violated early - Cat satisfies any "is"
         } else {
-            // Count constraint - skip cat constraints for early pruning
-            if (c->shape == SHAPE_CAT) continue;
-            
+            // Count constraint - enhanced bounds checking
             int committed_count = count_committed_shapes(p, c->cell_mask, c->shape);
+            int cat_count = count_cats(p, c->cell_mask);
+            int max_possible = committed_count + cat_count;
             
-            // Check for over-count violations
-            if ((c->op == OP_EXACTLY || c->op == OP_AT_MOST) && 
-                committed_count > c->count) {
-                return true;
-            }
-            if (c->op == OP_NONE && committed_count > 0) {
-                return true;
+            switch (c->op) {
+                case OP_EXACTLY:
+                    if (committed_count > c->count || max_possible < c->count) {
+                        return true;
+                    }
+                    break;
+                    
+                case OP_AT_LEAST:
+                    if (max_possible < c->count) {
+                        return true;
+                    }
+                    break;
+                    
+                case OP_AT_MOST:
+                    if (committed_count > c->count) {
+                        return true;
+                    }
+                    break;
+                    
+                case OP_NONE:
+                    if (committed_count > 0) {
+                        return true;
+                    }
+                    break;
+                    
+                default:
+                    break;
             }
         }
     }
@@ -200,11 +284,53 @@ static bool has_violated_constraint(const Puzzle* p) {
 }
 
 /**
+ * Initialize domains for all cells based on constraints
+ * This is done once at the start of solving
+ */
+static void init_domains(SolverContext* ctx) {
+    Puzzle* p = ctx->puzzle;
+    int total = p->width * p->height;
+    
+    // Start with all shapes possible
+    for (int i = 0; i < total; i++) {
+        if (is_locked(p, i)) {
+            ctx->domains[i] = (1 << p->board[i]);
+        } else {
+            ctx->domains[i] = DOMAIN_ALL;
+        }
+    }
+    
+    // Apply cell constraints to reduce domains
+    for (int i = 0; i < p->num_constraints; i++) {
+        const Constraint* c = &p->constraints[i];
+        
+        if (c->type == CONSTRAINT_CELL) {
+            int idx = cell_index(c->cell_x, c->cell_y, p->width);
+            
+            if (c->op == OP_IS) {
+                if (c->shape == SHAPE_CAT) {
+                    ctx->domains[idx] &= DOMAIN_CAT;
+                } else {
+                    // Can be the shape or Cat
+                    ctx->domains[idx] &= ((1 << c->shape) | DOMAIN_CAT);
+                }
+            } else if (c->op == OP_IS_NOT) {
+                if (c->shape == SHAPE_CAT) {
+                    ctx->domains[idx] &= DOMAIN_CONCRETE;
+                } else {
+                    ctx->domains[idx] &= ~((1 << c->shape) | DOMAIN_CAT);
+                }
+            }
+        }
+    }
+}
+
+/**
  * Recursive backtracking solver
  */
-static void solve_recursive(SolverContext* ctx, int cell_index) {
-    // Early exit if we found a solution and only want one
-    if (ctx->find_first && ctx->found_solution) {
+static void solve_recursive(SolverContext* ctx, int cell_index_start) {
+    // Early exit if we've found enough solutions
+    if (ctx->max_solutions > 0 && ctx->solution_count >= ctx->max_solutions) {
         return;
     }
     
@@ -213,8 +339,15 @@ static void solve_recursive(SolverContext* ctx, int cell_index) {
     Puzzle* p = ctx->puzzle;
     int total_cells = p->width * p->height;
     
+    // Find next unfilled cell (Cat cell that isn't locked)
+    int cell_idx = cell_index_start;
+    while (cell_idx < total_cells && 
+           (is_locked(p, cell_idx) || p->board[cell_idx] != SHAPE_CAT)) {
+        cell_idx++;
+    }
+    
     // Base case: all cells filled
-    if (cell_index >= total_cells) {
+    if (cell_idx >= total_cells) {
         if (all_constraints_satisfied(p)) {
             ctx->solution_count++;
             ctx->found_solution = true;
@@ -227,60 +360,44 @@ static void solve_recursive(SolverContext* ctx, int cell_index) {
         return;
     }
     
-    // Skip locked cells - they cannot be changed
-    if (is_locked(p, cell_index)) {
-        solve_recursive(ctx, cell_index + 1);
+    // State caching
+    uint64_t hash = compute_hash(ctx);
+    if (cache_check(ctx, hash)) {
         return;
     }
     
-    // State caching - check if we've seen this state before
-    uint64_t hash = compute_hash(ctx);
-    if (cache_check(ctx, hash)) {
-        return;  // Already explored this state with no solution
-    }
-    
-    uint8_t original_shape = p->board[cell_index];
+    uint8_t original_shape = p->board[cell_idx];
+    uint8_t domain = ctx->domains[cell_idx];
     bool found_any = false;
     
-    // Shape ordering: try current shape first, then concrete shapes, then cat
-    // This ordering tends to find violations faster
-    uint8_t shapes_to_try[SHAPE_COUNT];
-    int num_shapes = 0;
-    
-    shapes_to_try[num_shapes++] = original_shape;
-    
-    // Add concrete shapes (better for pruning)
+    // Try shapes in domain, concrete shapes first (better for pruning)
+    // Order: Square, Circle, Triangle, then Cat
     for (uint8_t s = SHAPE_SQUARE; s <= SHAPE_TRIANGLE; s++) {
-        if (s != original_shape) {
-            shapes_to_try[num_shapes++] = s;
-        }
-    }
-    
-    // Cat last (superposition is harder to prune)
-    if (original_shape != SHAPE_CAT) {
-        shapes_to_try[num_shapes++] = SHAPE_CAT;
-    }
-    
-    for (int i = 0; i < num_shapes; i++) {
-        if (ctx->find_first && ctx->found_solution) {
+        if (ctx->max_solutions > 0 && ctx->solution_count >= ctx->max_solutions) {
             break;
         }
         
-        uint8_t shape = shapes_to_try[i];
-        p->board[cell_index] = shape;
-        
-        solve_recursive(ctx, cell_index + 1);
-        
-        if (ctx->found_solution && !ctx->find_first) {
-            found_any = true;
+        if (domain & (1 << s)) {
+            p->board[cell_idx] = s;
+            solve_recursive(ctx, cell_idx + 1);
+            if (ctx->solution_count > 0) found_any = true;
+        }
+    }
+    
+    // Try Cat last (superposition is harder to prune)
+    if (domain & DOMAIN_CAT) {
+        if (!(ctx->max_solutions > 0 && ctx->solution_count >= ctx->max_solutions)) {
+            p->board[cell_idx] = SHAPE_CAT;
+            solve_recursive(ctx, cell_idx + 1);
+            if (ctx->solution_count > 0) found_any = true;
         }
     }
     
     // Restore original shape
-    p->board[cell_index] = original_shape;
+    p->board[cell_idx] = original_shape;
     
-    // Cache negative results only
-    if (!found_any && !ctx->found_solution) {
+    // Cache negative results
+    if (!found_any && ctx->solution_count == 0) {
         cache_add(ctx, hash);
     }
 }
@@ -295,14 +412,12 @@ void solver_precompute_masks(Puzzle* puzzle) {
         
         switch (c->type) {
             case CONSTRAINT_GLOBAL:
-                // All cells
                 for (int idx = 0; idx < puzzle->width * puzzle->height; idx++) {
                     c->cell_mask |= (1ULL << idx);
                 }
                 break;
                 
             case CONSTRAINT_ROW:
-                // All cells in row
                 for (int x = 0; x < puzzle->width; x++) {
                     int idx = cell_index(x, c->index, puzzle->width);
                     c->cell_mask |= (1ULL << idx);
@@ -310,7 +425,6 @@ void solver_precompute_masks(Puzzle* puzzle) {
                 break;
                 
             case CONSTRAINT_COLUMN:
-                // All cells in column
                 for (int y = 0; y < puzzle->height; y++) {
                     int idx = cell_index(c->index, y, puzzle->width);
                     c->cell_mask |= (1ULL << idx);
@@ -318,7 +432,6 @@ void solver_precompute_masks(Puzzle* puzzle) {
                 break;
                 
             case CONSTRAINT_CELL:
-                // Single cell (mask not used, but set anyway)
                 c->cell_mask = 1ULL << cell_index(c->cell_x, c->cell_y, puzzle->width);
                 break;
         }
@@ -326,60 +439,89 @@ void solver_precompute_masks(Puzzle* puzzle) {
 }
 
 /**
- * Main solve function
+ * Extended solve function with reusable context and max solutions
  */
-SolverResult solver_solve(Puzzle* puzzle, bool find_first) {
+SolverResult solver_solve_ex(SolverContext* ctx, Puzzle* puzzle, uint64_t max_solutions) {
     SolverResult result = {0};
+    bool own_context = (ctx == NULL);
     
     // Ensure masks are computed
     solver_precompute_masks(puzzle);
     
-    // Create context
-    SolverContext ctx = {0};
-    ctx.puzzle = puzzle;
-    ctx.find_first = find_first;
-    ctx.cache = calloc(CACHE_SIZE, sizeof(CacheEntry));
-    
-    if (!ctx.cache) {
-        return result;  // Memory allocation failed
+    // Create or reuse context
+    if (own_context) {
+        ctx = solver_context_create();
+        if (!ctx) return result;
+    } else {
+        solver_context_reset(ctx);
     }
     
-    init_zobrist(&ctx);
+    ctx->puzzle = puzzle;
+    ctx->max_solutions = max_solutions;
+    
+    // Initialize domains based on constraints
+    init_domains(ctx);
+    
+    // Check for empty domains (immediate contradiction)
+    int total = puzzle->width * puzzle->height;
+    for (int i = 0; i < total; i++) {
+        if (ctx->domains[i] == 0) {
+            result.solution_count = 0;
+            result.is_solvable = false;
+            if (own_context) solver_context_destroy(ctx);
+            return result;
+        }
+    }
     
     // Time the solve
     clock_t start = clock();
     
-    solve_recursive(&ctx, 0);
+    solve_recursive(ctx, 0);
     
     clock_t end = clock();
     
     // Populate result
-    result.solution_count = ctx.solution_count;
-    result.states_explored = ctx.states_explored;
+    result.solution_count = ctx->solution_count;
+    result.states_explored = ctx->states_explored;
     result.time_ms = ((double)(end - start) / CLOCKS_PER_SEC) * 1000.0;
-    result.is_solvable = ctx.solution_count > 0;
+    result.is_solvable = ctx->solution_count > 0;
     
-    free(ctx.cache);
+    if (own_context) {
+        solver_context_destroy(ctx);
+    }
     
     return result;
 }
 
+/**
+ * Main solve function (legacy API)
+ */
+SolverResult solver_solve(Puzzle* puzzle, bool find_first) {
+    return solver_solve_ex(NULL, puzzle, find_first ? 1 : 0);
+}
+
 bool solver_is_solvable(Puzzle* puzzle) {
-    SolverResult result = solver_solve(puzzle, true);
+    SolverResult result = solver_solve_ex(NULL, puzzle, 1);
     return result.is_solvable;
 }
 
 bool solver_has_unique_solution(Puzzle* puzzle) {
-    SolverResult result = solver_solve(puzzle, false);
+    // Stop at 2 - if we find more than 1, we know it's not unique
+    SolverResult result = solver_solve_ex(NULL, puzzle, 2);
+    return result.solution_count == 1;
+}
+
+bool solver_has_unique_solution_ex(SolverContext* ctx, Puzzle* puzzle) {
+    // Stop at 2 - if we find more than 1, we know it's not unique
+    SolverResult result = solver_solve_ex(ctx, puzzle, 2);
     return result.solution_count == 1;
 }
 
 uint64_t solver_count_solutions(Puzzle* puzzle) {
-    SolverResult result = solver_solve(puzzle, false);
+    SolverResult result = solver_solve_ex(NULL, puzzle, 0);
     return result.solution_count;
 }
 
 bool solver_validate(const Puzzle* puzzle) {
     return all_constraints_satisfied(puzzle);
 }
-
