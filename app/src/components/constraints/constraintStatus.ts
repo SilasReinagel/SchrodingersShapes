@@ -5,9 +5,9 @@ import {
   CellConstraint,
   CatShape, 
   isCountConstraint, 
-  isCellConstraint 
+  isCellConstraint,
+  ConstraintState
 } from '../../game/types';
-import { ConstraintState } from './ConstraintRow';
 
 /**
  * Count shapes in a region, with options for how to treat Cats

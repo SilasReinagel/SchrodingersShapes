@@ -95,3 +95,8 @@ export type PuzzleSnapshot = {
   board: GameBoard;
   moves: PuzzleMove[];
 }
+
+/**
+ * Constraint evaluation state
+ */
+export type ConstraintState = 'satisfied' | 'in_progress' | 'violated';

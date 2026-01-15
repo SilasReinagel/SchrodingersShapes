@@ -21,6 +21,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', layoutId }) 
     return (
       <motion.div
         className={`cat ${className}`}
+        style={{ pointerEvents: 'none' }}
         initial={{ rotate: 0 }}
         animate={{ 
           rotate: [-5, 5, -5]
@@ -35,6 +36,7 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', layoutId }) 
           src="/art/cat_01.png" 
           alt="?" 
           className="w-full h-full object-contain p-2"
+          style={{ pointerEvents: 'none' }}
         />
       </motion.div>
     );

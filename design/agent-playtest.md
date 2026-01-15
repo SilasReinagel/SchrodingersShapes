@@ -335,11 +335,189 @@ B | ▲ | ■ |
 
 ---
 
+## PM Reflection: What We Ought to Solve
+
+### Problem Prioritization
+
+**Critical Path Issues (Must Solve First):**
+
+1. **Constraint Format Mismatch** ⚠️ HIGH RISK
+   - The document defines a text format, but we need to verify the actual puzzle generator outputs constraints that match this syntax
+   - **Action Required**: Audit `algo/src/generator.c` to map actual constraint types to the proposed text format
+   - **Risk**: If generator produces constraints not covered by the format, agents will fail to parse puzzles
+
+2. **Validation Logic Gap** ⚠️ HIGH RISK
+   - The validation format is specified, but no validation engine exists yet
+   - **Action Required**: Build constraint validator that can evaluate all operator types (`=`, `!=`, `HAS`, `NONE`, `COUNT=N`, `COUNT>=N`)
+   - **Risk**: Without validation, we can't verify agent solutions or catch generator bugs
+
+3. **Pre-filled Cells (GIVEN) Support** ⚠️ MEDIUM RISK
+   - Example 2 shows `B2 = CIR` as a pre-filled cell, but unclear if generator supports this
+   - **Action Required**: Verify if generator creates puzzles with pre-filled cells, or if this is a future feature
+   - **Risk**: Format mismatch if we document features that don't exist
+
+**Implementation Gaps:**
+
+4. **Missing Constraint Coverage**
+   - Document lists 6 operators, but generator may use more/different constraint types
+   - **Action Required**: Complete constraint type inventory from generator source code
+   - **Risk**: Incomplete format specification leads to parsing failures
+
+5. **No Error Handling Spec**
+   - What happens when agent submits invalid solution format? Malformed coordinates? Unknown shapes?
+   - **Action Required**: Define error response format for validation failures
+   - **Risk**: Poor developer experience, unclear debugging path
+
+6. **Solution Format Ambiguity**
+   - Format shows `A1=TRI,A2=SQR` but no delimiter specification (comma? space? newline?)
+   - **Action Required**: Standardize solution parsing format with clear delimiter rules
+   - **Risk**: Parsing errors due to format ambiguity
+
+**Strategic Concerns:**
+
+7. **Dual Implementation Path**
+   - Recommended approach suggests Browser Console API first, then CLI
+   - **Question**: Do we need both? What's the actual use case?
+   - **Action Required**: Validate that browser console API is sufficient for agent testing
+   - **Risk**: Over-engineering if CLI isn't needed
+
+8. **Testing Strategy Missing**
+   - Document mentions "batch testing" but no test corpus or validation strategy
+   - **Action Required**: Define test puzzle set (known solvable/unsolvable puzzles) for regression testing
+   - **Risk**: Can't verify generator quality or catch regressions
+
+9. **Difficulty Calibration Unclear**
+   - Document mentions measuring "solve time/complexity programmatically" but no metrics defined
+   - **Action Required**: Define difficulty metrics (constraint count? constraint types? grid size?)
+   - **Risk**: Can't validate difficulty progression across levels
+
+**Dependencies & Blockers:**
+
+10. **Generator Documentation Gap**
+    - Need to understand what constraint types generator actually produces
+    - **Blocker**: Can't finalize text format without generator audit
+    - **Action Required**: Map generator constraint types → text format operators
+
+11. **Game State Access**
+    - Browser Console API requires exposing game state, but unclear if current architecture supports this
+    - **Blocker**: May need refactoring to expose puzzle state cleanly
+    - **Action Required**: Audit `GameContext.tsx` and puzzle state management
+
+12. **Validation Engine Architecture**
+    - Need to decide: reuse existing game validation logic or build separate validator?
+    - **Blocker**: Duplication risk if we build separate validator
+    - **Action Required**: Evaluate existing constraint checking code in game components
+
+### Recommended Solution Order
+
+**Phase 1: Foundation (Week 1)**
+1. ✅ Audit generator constraint types → map to text format
+2. ✅ Build constraint validator (reuse game logic if possible)
+3. ✅ Implement Browser Console API (`window.SchrodingersPuzzle.describe()`)
+4. ✅ Test with 5-10 known puzzles to validate format
+
+**Phase 2: Validation & Testing (Week 2)**
+5. ✅ Create test puzzle corpus (20+ puzzles across all levels)
+6. ✅ Add error handling and malformed input handling
+7. ✅ Document solution format with clear delimiter rules
+8. ✅ Validate generator produces solvable puzzles
+
+**Phase 3: Scale & Polish (Week 3)**
+9. ✅ Add CLI tool if browser API proves insufficient
+10. ✅ Build difficulty metrics/calibration system
+11. ✅ Create batch testing infrastructure
+12. ✅ Document full API surface
+
+### Key Questions to Answer
+
+- [ ] Does the generator support all constraint types in the format spec?
+- [ ] Can we reuse existing game validation logic, or need separate validator?
+- [ ] Is browser console API sufficient, or do we need CLI for batch testing?
+- [ ] What's the actual use case: agent testing, puzzle validation, or both?
+- [ ] How do we measure puzzle difficulty programmatically?
+- [ ] What happens when generator produces unsolvable puzzles?
+
+### Success Metrics
+
+- **Format Completeness**: 100% of generator constraint types mapped to text format
+- **Validation Accuracy**: Validator correctly identifies all constraint violations
+- **Agent Usability**: Agent can solve puzzles using text format without UI interaction
+- **Test Coverage**: Test corpus covers all levels and constraint types
+- **Performance**: Text-based validation completes in <10ms per puzzle
+
+---
+
+## Implementation Status
+
+### ✅ CLI Tool (Completed)
+
+A fully functional CLI tool has been implemented at `app/cli/puzzle-cli.ts`.
+
+#### Usage
+
+```bash
+# From the app directory
+cd app
+
+# Start a new puzzle
+bun run cli --userid=agent1 start --level=1 --seed=42
+
+# Place a shape
+bun run cli --userid=agent1 select --tile=A1 --shape=SQR
+
+# Undo last move
+bun run cli --userid=agent1 undo
+
+# Reset to initial state
+bun run cli --userid=agent1 reset
+
+# Show current state
+bun run cli --userid=agent1 status
+```
+
+#### Output Format
+
+```
+════════════════════════════════════════════════════════════
+PUZZLE: Level 1, Seed 42
+GRID: 2x2
+MOVES: 0
+════════════════════════════════════════════════════════════
+
+BOARD:
+     1   2  
+  +---+---+
+A | ? | ? |
+  +---+---+
+B | ? | ? |
+  +---+---+
+
+Legend: ? = Unknown (Cat), ■ = Square, ● = Circle, ▲ = Triangle
+        * = Locked (pre-filled, cannot change)
+
+CONSTRAINTS:
+  1. ✓ A1 = Square
+  2. ○ B1 ≠ Cat
+  3. ○ A1 ≠ Cat
+  4. ✓ B1 = Circle
+  ...
+
+STATUS: 6/10 satisfied, 0 violated, 4 in progress
+
+════════════════════════════════════════════════════════════
+```
+
+#### State Persistence
+
+Each `--userid` stores its game state in a separate JSON file at `app/cli/.states/<userid>.json`. This allows multiple agents to play simultaneously without conflicts.
+
+---
+
 ## Next Steps
 
 1. [ ] Implement `window.SchrodingersPuzzle.describe()` browser API
 2. [ ] Add text export to existing puzzle generator
-3. [ ] Create CLI wrapper for puzzle binary
+3. [x] ~~Create CLI wrapper for puzzle binary~~ (Implemented as TypeScript CLI)
 4. [ ] Build test suite with known-solvable puzzles
 5. [ ] Document constraint types used by generator
 

@@ -13,8 +13,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { PuzzleGenerator } from '../src/game/PuzzleGenerator';
-import { getConstraintState } from '../src/components/constraints/constraintStatus';
+import { fileURLToPath } from 'url';
+import { PuzzleGenerator } from '../src/game/PuzzleGenerator.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import { getConstraintState } from '../src/components/constraints/constraintStatus.js';
 import {
   GameBoard,
   ConstraintDefinition,
@@ -28,7 +32,7 @@ import {
   isCountConstraint,
   isCellConstraint,
   ShapeNames,
-} from '../src/game/types';
+} from '../src/game/types.js';
 
 // ============================================================================
 // Types

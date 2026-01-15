@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   ConstraintDefinition, 
+  ConstraintState,
   isCountConstraint, 
   isCellConstraint, 
   CatShape,
@@ -12,7 +13,8 @@ import { OperatorDisplay } from './OperatorDisplay';
 import { ShapeIcon } from './ShapeIcon';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
-export type ConstraintState = 'satisfied' | 'in_progress' | 'violated';
+// Re-export for backwards compatibility
+export type { ConstraintState };
 
 interface ConstraintRowProps {
   constraint: ConstraintDefinition;
