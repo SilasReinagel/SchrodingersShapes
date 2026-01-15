@@ -1,8 +1,9 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ConstraintDefinition, 
   ConstraintState,
+  GameBoard,
   isCountConstraint, 
   isCellConstraint, 
   CatShape,
@@ -11,6 +12,7 @@ import {
 import { ScopeIcon } from './ScopeIcon';
 import { OperatorDisplay } from './OperatorDisplay';
 import { ShapeIcon } from './ShapeIcon';
+import { ConstraintHover } from './ConstraintHover';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
 // Re-export for backwards compatibility
@@ -22,6 +24,7 @@ interface ConstraintRowProps {
   index: number;
   boardWidth: number;
   boardHeight: number;
+  grid: GameBoard;
 }
 
 /**
@@ -92,8 +95,10 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
   status, 
   index,
   boardWidth,
-  boardHeight
+  boardHeight,
+  grid
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const operator = getOperator(constraint);
   const shapeId = getShape(constraint);
   const countDisplay = getCountDisplay(constraint);
@@ -124,11 +129,24 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
         })
       }}
       className={`
-        flex items-center gap-3 px-2 py-1.5 rounded-lg
+        relative flex items-center gap-3 px-2 py-1.5 rounded-lg
         transition-colors duration-200
         ${statusBgClass}
       `}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      <AnimatePresence>
+        {isHovered && (
+          <ConstraintHover
+            constraint={constraint}
+            grid={grid}
+            status={status}
+            boardWidth={boardWidth}
+            boardHeight={boardHeight}
+          />
+        )}
+      </AnimatePresence>
       {/* Scope indicator (grid matching board size) */}
       <ScopeIcon constraint={constraint} boardWidth={boardWidth} boardHeight={boardHeight} size="md" />
       

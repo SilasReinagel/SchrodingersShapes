@@ -46,7 +46,7 @@ const countShapes = (
 /**
  * Get cells for a constraint's scope
  */
-const getCellsInScope = (grid: GameBoard, constraint: ConstraintDefinition): { shape: number }[] => {
+export const getCellsInScope = (grid: GameBoard, constraint: ConstraintDefinition): { shape: number }[] => {
   if (isCountConstraint(constraint)) {
     const { type, index = 0 } = constraint;
     

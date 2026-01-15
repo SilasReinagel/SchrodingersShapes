@@ -10,6 +10,7 @@ interface ConstraintsPanelProps {
   grid: GameBoard;
   boardWidth: number;
   boardHeight: number;
+  flipXY?: boolean;
 }
 
 /**
@@ -23,9 +24,14 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
   constraints, 
   grid,
   boardWidth,
-  boardHeight
+  boardHeight,
+  flipXY = false
 }) => {
   const constraintStates = getConstraintStates(grid, constraints);
+  
+  // Swap dimensions if flipXY is true
+  const displayWidth = flipXY ? boardHeight : boardWidth;
+  const displayHeight = flipXY ? boardWidth : boardHeight;
 
   return (
     <motion.div
@@ -56,8 +62,9 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
               constraint={constraint}
               status={constraintStates[index]}
               index={index}
-              boardWidth={boardWidth}
-              boardHeight={boardHeight}
+              boardWidth={displayWidth}
+              boardHeight={displayHeight}
+              grid={grid}
             />
           ))}
         </div>

@@ -801,3 +801,372 @@ bool generator_quick(Difficulty level, uint64_t seed, Puzzle* puzzle) {
 bool generator_validate_unique(Puzzle* puzzle) {
     return solver_has_unique_solution(puzzle);
 }
+
+// =============================================================================
+// Constraint Optimization for User Display
+// =============================================================================
+
+/**
+ * Check if a cell constraint is implied by row/column count constraints
+ * 
+ * Examples:
+ * - "Row 0 has exactly 0 Circles" implies "Cell(0,0) is not Circle"
+ * - "Column 1 has exactly 2 Squares" with only 2 cells implies both are Squares
+ */
+static bool cell_constraint_implied_by_count(const Puzzle* puzzle, const Constraint* cell_c) {
+    if (cell_c->type != CONSTRAINT_CELL) return false;
+    
+    int cx = cell_c->cell_x;
+    int cy = cell_c->cell_y;
+    
+    for (int i = 0; i < puzzle->num_constraints; i++) {
+        const Constraint* c = &puzzle->constraints[i];
+        
+        // Check row constraints
+        if (c->type == CONSTRAINT_ROW && c->index == cy) {
+            // "Row has exactly 0 of shape" implies "cell is not that shape"
+            if (c->op == OP_EXACTLY && c->count == 0 && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS_NOT) {
+                    return true;  // Redundant: row says 0 of this shape
+                }
+            }
+            // "Row has exactly N of shape" where N = row width implies all cells are that shape
+            if (c->op == OP_EXACTLY && c->count == puzzle->width && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS) {
+                    return true;  // Redundant: row says all cells are this shape
+                }
+            }
+        }
+        
+        // Check column constraints
+        if (c->type == CONSTRAINT_COLUMN && c->index == cx) {
+            // "Column has exactly 0 of shape" implies "cell is not that shape"
+            if (c->op == OP_EXACTLY && c->count == 0 && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS_NOT) {
+                    return true;  // Redundant: column says 0 of this shape
+                }
+            }
+            // "Column has exactly N of shape" where N = column height implies all cells are that shape
+            if (c->op == OP_EXACTLY && c->count == puzzle->height && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS) {
+                    return true;  // Redundant: column says all cells are this shape
+                }
+            }
+        }
+        
+        // Check global constraints
+        if (c->type == CONSTRAINT_GLOBAL) {
+            int total_cells = puzzle->width * puzzle->height;
+            // "Global has exactly 0 of shape" implies no cell is that shape
+            if (c->op == OP_EXACTLY && c->count == 0 && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS_NOT) {
+                    return true;  // Redundant: global says 0 of this shape
+                }
+            }
+            // "Global has exactly N of shape" where N = total cells implies all cells are that shape
+            if (c->op == OP_EXACTLY && c->count == total_cells && c->shape == cell_c->shape) {
+                if (cell_c->op == OP_IS) {
+                    return true;  // Redundant: global says all cells are this shape
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Check if a "is not X" constraint is redundant given a "is Y" constraint
+ * If we know cell IS Square, we don't need "is not Cat", "is not Circle", "is not Triangle"
+ */
+static bool is_not_implied_by_is(const Puzzle* puzzle, const Constraint* is_not_c) {
+    if (is_not_c->type != CONSTRAINT_CELL || is_not_c->op != OP_IS_NOT) return false;
+    
+    int cx = is_not_c->cell_x;
+    int cy = is_not_c->cell_y;
+    
+    for (int i = 0; i < puzzle->num_constraints; i++) {
+        const Constraint* c = &puzzle->constraints[i];
+        
+        // Look for "is X" constraint on same cell
+        if (c->type == CONSTRAINT_CELL && c->op == OP_IS &&
+            c->cell_x == cx && c->cell_y == cy) {
+            // If "is X" where X != the forbidden shape, the "is not" is redundant
+            if (c->shape != is_not_c->shape) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Check if constraint is about a locked cell (redundant - locked cells are already shown)
+ */
+static bool constraint_on_locked_cell(const Puzzle* puzzle, const Constraint* c) {
+    if (c->type != CONSTRAINT_CELL) return false;
+    
+    int idx = cell_index(c->cell_x, c->cell_y, puzzle->width);
+    return is_locked(puzzle, idx);
+}
+
+/**
+ * Check if a constraint is redundant given the current set
+ */
+static bool is_constraint_redundant(const Puzzle* puzzle, const Constraint* c, 
+                                     const Constraint* kept, int num_kept) {
+    // Check if already in kept set (duplicate)
+    for (int i = 0; i < num_kept; i++) {
+        const Constraint* k = &kept[i];
+        if (k->type == c->type && k->op == c->op && k->shape == c->shape) {
+            if (c->type == CONSTRAINT_CELL) {
+                if (k->cell_x == c->cell_x && k->cell_y == c->cell_y) {
+                    return true;  // Exact duplicate
+                }
+            } else if (c->type == CONSTRAINT_GLOBAL) {
+                return true;  // Duplicate global constraint for same shape
+            } else if (k->index == c->index) {
+                return true;  // Duplicate row/column constraint
+            }
+        }
+    }
+    
+    // Check if constraint is on a locked cell
+    if (constraint_on_locked_cell(puzzle, c)) {
+        return true;
+    }
+    
+    // Check if "is not X" is implied by "is Y"
+    if (is_not_implied_by_is(puzzle, c)) {
+        return true;
+    }
+    
+    // Check if cell constraint is implied by row/column count
+    if (cell_constraint_implied_by_count(puzzle, c)) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Try to consolidate cell constraints into row/column count constraints
+ * Returns true if consolidation was performed
+ */
+static bool try_consolidate_row_column(const Puzzle* puzzle, 
+                                        Constraint* display, int* num_display) {
+    bool did_consolidate = false;
+    
+    // For each row, check if we can consolidate
+    for (int y = 0; y < puzzle->height; y++) {
+        for (uint8_t shape = SHAPE_CAT; shape <= SHAPE_TRIANGLE; shape++) {
+            // Count "is X" constraints for this shape in this row
+            int is_count = 0;
+            bool all_specified = true;
+            
+            for (int x = 0; x < puzzle->width; x++) {
+                bool found_is = false;
+                for (int i = 0; i < *num_display; i++) {
+                    if (display[i].type == CONSTRAINT_CELL &&
+                        display[i].op == OP_IS &&
+                        display[i].cell_x == x && display[i].cell_y == y &&
+                        display[i].shape == shape) {
+                        found_is = true;
+                        is_count++;
+                        break;
+                    }
+                }
+                if (!found_is) {
+                    // Check if locked cell has this shape
+                    int idx = cell_index(x, y, puzzle->width);
+                    if (is_locked(puzzle, idx) && puzzle->board[idx] == shape) {
+                        is_count++;
+                    } else {
+                        all_specified = false;
+                    }
+                }
+            }
+            
+            // If we have 2+ "is X" constraints in a row, consider consolidating
+            if (is_count >= 2 && all_specified) {
+                // Check if we already have a row constraint for this
+                bool has_row_constraint = false;
+                for (int i = 0; i < *num_display; i++) {
+                    if (display[i].type == CONSTRAINT_ROW &&
+                        display[i].index == y &&
+                        display[i].shape == shape) {
+                        has_row_constraint = true;
+                        break;
+                    }
+                }
+                
+                if (!has_row_constraint) {
+                    // Remove individual cell constraints and add row constraint
+                    int new_count = 0;
+                    for (int i = 0; i < *num_display; i++) {
+                        bool remove = (display[i].type == CONSTRAINT_CELL &&
+                                      display[i].op == OP_IS &&
+                                      display[i].cell_y == y &&
+                                      display[i].shape == shape);
+                        if (!remove) {
+                            display[new_count++] = display[i];
+                        }
+                    }
+                    
+                    // Add row count constraint
+                    display[new_count++] = (Constraint){
+                        .type = CONSTRAINT_ROW,
+                        .op = OP_EXACTLY,
+                        .shape = shape,
+                        .count = is_count,
+                        .index = y
+                    };
+                    
+                    *num_display = new_count;
+                    did_consolidate = true;
+                }
+            }
+        }
+    }
+    
+    // Similar logic for columns
+    for (int x = 0; x < puzzle->width; x++) {
+        for (uint8_t shape = SHAPE_CAT; shape <= SHAPE_TRIANGLE; shape++) {
+            int is_count = 0;
+            bool all_specified = true;
+            
+            for (int y = 0; y < puzzle->height; y++) {
+                bool found_is = false;
+                for (int i = 0; i < *num_display; i++) {
+                    if (display[i].type == CONSTRAINT_CELL &&
+                        display[i].op == OP_IS &&
+                        display[i].cell_x == x && display[i].cell_y == y &&
+                        display[i].shape == shape) {
+                        found_is = true;
+                        is_count++;
+                        break;
+                    }
+                }
+                if (!found_is) {
+                    int idx = cell_index(x, y, puzzle->width);
+                    if (is_locked(puzzle, idx) && puzzle->board[idx] == shape) {
+                        is_count++;
+                    } else {
+                        all_specified = false;
+                    }
+                }
+            }
+            
+            if (is_count >= 2 && all_specified) {
+                bool has_col_constraint = false;
+                for (int i = 0; i < *num_display; i++) {
+                    if (display[i].type == CONSTRAINT_COLUMN &&
+                        display[i].index == x &&
+                        display[i].shape == shape) {
+                        has_col_constraint = true;
+                        break;
+                    }
+                }
+                
+                if (!has_col_constraint) {
+                    int new_count = 0;
+                    for (int i = 0; i < *num_display; i++) {
+                        bool remove = (display[i].type == CONSTRAINT_CELL &&
+                                      display[i].op == OP_IS &&
+                                      display[i].cell_x == x &&
+                                      display[i].shape == shape);
+                        if (!remove) {
+                            display[new_count++] = display[i];
+                        }
+                    }
+                    
+                    display[new_count++] = (Constraint){
+                        .type = CONSTRAINT_COLUMN,
+                        .op = OP_EXACTLY,
+                        .shape = shape,
+                        .count = is_count,
+                        .index = x
+                    };
+                    
+                    *num_display = new_count;
+                    did_consolidate = true;
+                }
+            }
+        }
+    }
+    
+    return did_consolidate;
+}
+
+/**
+ * Shuffle constraints using Fisher-Yates algorithm with seeded RNG
+ */
+static void shuffle_constraints(Constraint* constraints, int count, RNG* rng) {
+    for (int i = count - 1; i > 0; i--) {
+        int j = rng_int(rng, i + 1);
+        Constraint tmp = constraints[i];
+        constraints[i] = constraints[j];
+        constraints[j] = tmp;
+    }
+}
+
+void generator_optimize_constraints(Puzzle* puzzle, uint64_t seed) {
+    if (!puzzle || puzzle->num_constraints == 0) {
+        puzzle->num_display_constraints = 0;
+        return;
+    }
+    
+    // Start with copy of raw constraints, filtering redundant ones
+    Constraint kept[MAX_DISPLAY_CONSTRAINTS];
+    int num_kept = 0;
+    
+    // First pass: keep the global cat count constraint (always first and important)
+    for (int i = 0; i < puzzle->num_constraints && num_kept < MAX_DISPLAY_CONSTRAINTS; i++) {
+        const Constraint* c = &puzzle->constraints[i];
+        if (c->type == CONSTRAINT_GLOBAL && c->shape == SHAPE_CAT) {
+            kept[num_kept++] = *c;
+            break;
+        }
+    }
+    
+    // Second pass: add non-redundant constraints
+    for (int i = 0; i < puzzle->num_constraints && num_kept < MAX_DISPLAY_CONSTRAINTS; i++) {
+        const Constraint* c = &puzzle->constraints[i];
+        
+        // Skip global cat count (already added)
+        if (c->type == CONSTRAINT_GLOBAL && c->shape == SHAPE_CAT) {
+            continue;
+        }
+        
+        if (!is_constraint_redundant(puzzle, c, kept, num_kept)) {
+            kept[num_kept++] = *c;
+        }
+    }
+    
+    // Copy to display array
+    for (int i = 0; i < num_kept; i++) {
+        puzzle->display_constraints[i] = kept[i];
+    }
+    int num_display = num_kept;
+    
+    // Try to consolidate cell constraints into row/column counts
+    // Run multiple passes until no more consolidation is possible
+    while (try_consolidate_row_column(puzzle, puzzle->display_constraints, &num_display)) {
+        // Keep trying
+    }
+    
+    // Shuffle all constraints except the first one (global cat count)
+    if (num_display > 1) {
+        RNG rng;
+        rng_init(&rng, seed);
+        shuffle_constraints(puzzle->display_constraints + 1, num_display - 1, &rng);
+    }
+    
+    puzzle->num_display_constraints = num_display;
+    
+    if (g_debug) {
+        printf("  [DEBUG] Optimized: %d raw -> %d display constraints\n",
+               puzzle->num_constraints, puzzle->num_display_constraints);
+    }
+}

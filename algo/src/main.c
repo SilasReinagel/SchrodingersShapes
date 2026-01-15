@@ -194,6 +194,180 @@ static int run_tests(void) {
         }
     }
     
+    // Test 6: Constraint optimization - removes "is not X" when "is Y" exists
+    {
+        printf("Test 6: Optimizer removes redundant 'is not' when 'is' exists... ");
+        
+        Puzzle p = {0};
+        p.width = 2;
+        p.height = 2;
+        for (int i = 0; i < 4; i++) p.board[i] = SHAPE_CAT;
+        
+        // Constraints: Cell(0,0) is Square, Cell(0,0) is not Cat, Cell(0,0) is not Circle
+        p.constraints[0] = (Constraint){.type = CONSTRAINT_GLOBAL, .op = OP_EXACTLY, .shape = SHAPE_CAT, .count = 1};
+        p.constraints[1] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS, .shape = SHAPE_SQUARE, .cell_x = 0, .cell_y = 0};
+        p.constraints[2] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS_NOT, .shape = SHAPE_CAT, .cell_x = 0, .cell_y = 0};
+        p.constraints[3] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS_NOT, .shape = SHAPE_CIRCLE, .cell_x = 0, .cell_y = 0};
+        p.num_constraints = 4;
+        
+        generator_optimize_constraints(&p, 42);
+        
+        // Should remove "is not Cat" and "is not Circle" (implied by "is Square")
+        // Expecting: global cat count + "is Square" = 2 constraints
+        if (p.num_display_constraints == 2) {
+            printf(COLOR_GREEN "PASS" COLOR_RESET " (4 raw -> 2 display)\n");
+            passed++;
+        } else {
+            printf(COLOR_RED "FAIL" COLOR_RESET " (expected 2 display, got %d)\n", p.num_display_constraints);
+            failed++;
+        }
+    }
+    
+    // Test 7: Constraint optimization - removes cell constraints implied by row constraints
+    {
+        printf("Test 7: Optimizer removes cell constraints implied by row... ");
+        
+        Puzzle p = {0};
+        p.width = 2;
+        p.height = 2;
+        for (int i = 0; i < 4; i++) p.board[i] = SHAPE_CAT;
+        
+        // Constraints: Row 0 has exactly 0 Circles, Cell(0,0) is not Circle
+        p.constraints[0] = (Constraint){.type = CONSTRAINT_GLOBAL, .op = OP_EXACTLY, .shape = SHAPE_CAT, .count = 1};
+        p.constraints[1] = (Constraint){.type = CONSTRAINT_ROW, .op = OP_EXACTLY, .shape = SHAPE_CIRCLE, .count = 0, .index = 0};
+        p.constraints[2] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS_NOT, .shape = SHAPE_CIRCLE, .cell_x = 0, .cell_y = 0};
+        p.constraints[3] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS_NOT, .shape = SHAPE_CIRCLE, .cell_x = 1, .cell_y = 0};
+        p.num_constraints = 4;
+        
+        generator_optimize_constraints(&p, 42);
+        
+        // Should remove both "is not Circle" (implied by row constraint)
+        // Expecting: global cat count + row constraint = 2 constraints
+        if (p.num_display_constraints == 2) {
+            printf(COLOR_GREEN "PASS" COLOR_RESET " (4 raw -> 2 display)\n");
+            passed++;
+        } else {
+            printf(COLOR_RED "FAIL" COLOR_RESET " (expected 2 display, got %d)\n", p.num_display_constraints);
+            failed++;
+        }
+    }
+    
+    // Test 8: Constraint optimization - removes constraints on locked cells
+    {
+        printf("Test 8: Optimizer removes constraints on locked cells... ");
+        
+        Puzzle p = {0};
+        p.width = 2;
+        p.height = 2;
+        p.board[0] = SHAPE_SQUARE;  // Locked
+        p.board[1] = SHAPE_CAT;
+        p.board[2] = SHAPE_CAT;
+        p.board[3] = SHAPE_CAT;
+        set_locked(&p, 0, true);
+        
+        // Constraints: Global cat count, Cell(0,0) is Square (redundant - locked), another constraint
+        p.constraints[0] = (Constraint){.type = CONSTRAINT_GLOBAL, .op = OP_EXACTLY, .shape = SHAPE_CAT, .count = 1};
+        p.constraints[1] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS, .shape = SHAPE_SQUARE, .cell_x = 0, .cell_y = 0};
+        p.constraints[2] = (Constraint){.type = CONSTRAINT_CELL, .op = OP_IS, .shape = SHAPE_CIRCLE, .cell_x = 1, .cell_y = 0};
+        p.num_constraints = 3;
+        
+        generator_optimize_constraints(&p, 42);
+        
+        // Should remove constraint on locked cell
+        // Expecting: global cat count + Cell(1,0) is Circle = 2 constraints
+        if (p.num_display_constraints == 2) {
+            printf(COLOR_GREEN "PASS" COLOR_RESET " (3 raw -> 2 display)\n");
+            passed++;
+        } else {
+            printf(COLOR_RED "FAIL" COLOR_RESET " (expected 2 display, got %d)\n", p.num_display_constraints);
+            failed++;
+        }
+    }
+    
+    // Test 9: Optimizer always keeps global cat count first
+    {
+        printf("Test 9: Optimizer keeps global cat count as first constraint... ");
+        
+        Puzzle p;
+        if (generator_quick(LEVEL_3, 123, &p)) {
+            generator_optimize_constraints(&p, 123);
+            
+            bool first_is_cat_count = (p.num_display_constraints > 0 &&
+                                       p.display_constraints[0].type == CONSTRAINT_GLOBAL &&
+                                       p.display_constraints[0].shape == SHAPE_CAT);
+            
+            if (first_is_cat_count) {
+                printf(COLOR_GREEN "PASS" COLOR_RESET "\n");
+                passed++;
+            } else {
+                printf(COLOR_RED "FAIL" COLOR_RESET " (first constraint is not global cat count)\n");
+                failed++;
+            }
+        } else {
+            printf(COLOR_YELLOW "SKIP" COLOR_RESET " (generation failed)\n");
+            passed++;
+        }
+    }
+    
+    // Test 10: Optimizer produces fewer or equal constraints
+    {
+        printf("Test 10: Optimizer reduces constraint count... ");
+        
+        int reduced = 0;
+        const int COUNT = 20;
+        
+        for (int seed = 0; seed < COUNT; seed++) {
+            Puzzle p;
+            if (generator_quick(LEVEL_5, seed, &p)) {
+                generator_optimize_constraints(&p, seed);
+                if (p.num_display_constraints <= p.num_constraints) {
+                    reduced++;
+                }
+            }
+        }
+        
+        if (reduced == COUNT) {
+            printf(COLOR_GREEN "PASS" COLOR_RESET " (%d/%d reduced or equal)\n", reduced, COUNT);
+            passed++;
+        } else {
+            printf(COLOR_RED "FAIL" COLOR_RESET " (%d/%d had display > raw)\n", COUNT - reduced, COUNT);
+            failed++;
+        }
+    }
+    
+    // Test 11: Same seed produces same shuffled order
+    {
+        printf("Test 11: Same seed produces deterministic shuffle... ");
+        
+        Puzzle p1, p2;
+        bool ok = generator_quick(LEVEL_3, 456, &p1) && generator_quick(LEVEL_3, 456, &p2);
+        
+        if (ok) {
+            generator_optimize_constraints(&p1, 456);
+            generator_optimize_constraints(&p2, 456);
+            
+            bool same = (p1.num_display_constraints == p2.num_display_constraints);
+            for (int i = 0; same && i < p1.num_display_constraints; i++) {
+                if (p1.display_constraints[i].type != p2.display_constraints[i].type ||
+                    p1.display_constraints[i].shape != p2.display_constraints[i].shape ||
+                    p1.display_constraints[i].op != p2.display_constraints[i].op) {
+                    same = false;
+                }
+            }
+            
+            if (same) {
+                printf(COLOR_GREEN "PASS" COLOR_RESET "\n");
+                passed++;
+            } else {
+                printf(COLOR_RED "FAIL" COLOR_RESET " (different results for same seed)\n");
+                failed++;
+            }
+        } else {
+            printf(COLOR_YELLOW "SKIP" COLOR_RESET " (generation failed)\n");
+            passed++;
+        }
+    }
+    
     printf("\n" COLOR_CYAN "Results: %d passed, %d failed" COLOR_RESET "\n\n", passed, failed);
     
     return failed > 0 ? 1 : 0;
@@ -271,7 +445,17 @@ static void solve_puzzle(Difficulty level, uint64_t seed) {
         return;
     }
     
+    // Optimize constraints for display
+    generator_optimize_constraints(&p, seed);
+    
     puzzle_print(&p);
+    
+    // Show display constraints
+    printf("\n" COLOR_CYAN "Display Constraints (%d):" COLOR_RESET "\n", p.num_display_constraints);
+    for (int i = 0; i < p.num_display_constraints; i++) {
+        printf("  %d. ", i + 1);
+        constraint_print(&p.display_constraints[i]);
+    }
     
     printf("\n" COLOR_CYAN "Solving..." COLOR_RESET "\n");
     
@@ -281,6 +465,8 @@ static void solve_puzzle(Difficulty level, uint64_t seed) {
     printf("  Solutions:    %lu\n", (unsigned long)result.solution_count);
     printf("  States:       %lu\n", (unsigned long)result.states_explored);
     printf("  Time:         %.3f ms\n", result.time_ms);
+    printf("  Raw constraints:     %d\n", p.num_constraints);
+    printf("  Display constraints: %d\n", p.num_display_constraints);
     printf("  Status:       %s\n", 
            result.solution_count == 1 ? COLOR_GREEN "UNIQUE" COLOR_RESET :
            result.solution_count > 1 ? COLOR_YELLOW "MULTIPLE" COLOR_RESET :

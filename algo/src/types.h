@@ -26,6 +26,7 @@
 
 // Maximum constraints
 #define MAX_CONSTRAINTS 32
+#define MAX_DISPLAY_CONSTRAINTS 32
 
 // Constraint types
 typedef enum {
@@ -71,7 +72,7 @@ typedef struct {
     uint8_t width;
     uint8_t height;
     uint8_t num_constraints;
-    uint8_t _pad;
+    uint8_t num_display_constraints;  // Optimized constraints for user display
     
     // Flat board: board[y * width + x] = shape
     uint8_t board[MAX_CELLS];
@@ -79,8 +80,11 @@ typedef struct {
     // Locked cells bitmask (1 = locked)
     uint64_t locked_mask;
     
-    // Constraints
+    // Raw constraints (used by solver)
     Constraint constraints[MAX_CONSTRAINTS];
+    
+    // Optimized display constraints (shown to user, shuffled)
+    Constraint display_constraints[MAX_DISPLAY_CONSTRAINTS];
 } Puzzle;
 
 /**

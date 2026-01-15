@@ -62,5 +62,16 @@ void generator_set_debug(bool enable);
  */
 void generator_get_profile_stats(int* solver_calls, double* solver_time_ms);
 
+/**
+ * Optimize constraints for user display
+ * Removes redundant clues, consolidates where possible, and shuffles result
+ * 
+ * @param puzzle      Puzzle with raw constraints filled in
+ * @param seed        Random seed for shuffling
+ * 
+ * Populates puzzle->display_constraints and puzzle->num_display_constraints
+ */
+void generator_optimize_constraints(Puzzle* puzzle, uint64_t seed);
+
 #endif // GENERATOR_H
 

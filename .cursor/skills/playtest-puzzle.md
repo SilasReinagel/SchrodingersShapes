@@ -155,14 +155,91 @@ A | ●*| ? |
 
 This means A1 is locked as Circle and cannot be changed. Use locked cells as given information when solving.
 
-## Reporting Issues
+## Writing Playtest Reports
 
-When playtesting, note:
+After completing a playtest session, write a report to the `.playtest/` folder.
+
+### File Naming Convention
+
+```
+.playtest/YYYY-MM-DD-<name>-<age>.md
+```
+
+**Examples:**
+- `.playtest/2026-01-14-alex-18.md`
+- `.playtest/2026-01-15-sam-25.md`
+- `.playtest/2026-01-15-jordan-32.md`
+
+### Report Template
+
+Include the following sections:
+
+```markdown
+# Playtest Report
+**Player:** <Name>  
+**Age:** <Age>  
+**Date:** <Full Date>  
+**Session Duration:** <Time spent>  
+**Levels Played:** <List of levels>
+
+---
+
+## Session Summary
+| Level | Grid | Seed | Moves | Result | Difficulty Rating |
+|-------|------|------|-------|--------|-------------------|
+| 1 | 2x2 | 1001 | 4 | ✅ Solved | X/10 |
+
+---
+
+## Level X (Seed XXXX)
+### Initial State
+<Grid display>
+
+### Constraints
+<List of constraints>
+
+### Solution
+<Final grid>
+
+### Notes
+<Observations about this level>
+
+---
+
+## Player Feedback
+### Positives ✅
+<What worked well>
+
+### Issues ⚠️
+<Problems encountered>
+
+---
+
+## Recommendations
+| Priority | Issue | Suggestion |
+|----------|-------|------------|
+
+---
+
+## Ratings
+| Category | Score | Notes |
+|----------|-------|-------|
+| Clarity | ⭐⭐⭐⭐⭐ | |
+| Challenge | ⭐☆☆☆☆ | |
+| Fun | ⭐⭐☆☆☆ | |
+| Replayability | ⭐⭐☆☆☆ | |
+
+**Overall:** X/20
+```
+
+### What to Report
 
 1. **Solvability**: Could you solve the puzzle using pure logic?
 2. **Constraint clarity**: Were the constraints unambiguous?
 3. **Difficulty**: Was the level appropriate for its designation?
 4. **Edge cases**: Any unexpected behavior?
+5. **Deduction depth**: How many multi-step deductions were required?
+6. **Redundancy**: Were there unnecessary or redundant constraints?
 
 ## Tips for AI Agents
 

@@ -9,6 +9,7 @@ interface GridProps {
   grid: GameBoard;
   onCellClick: (row: number, col: number) => void;
   onShapeSelect: (row: number, col: number, shape: ShapeId) => void;
+  flipXY?: boolean;
 }
 
 interface PickerState {
@@ -39,7 +40,7 @@ const REFERENCE_ROWS = 4;
 const REFERENCE_CELL_SIZE = 100; // Base cell size before viewport adjustments
 const REFERENCE_GAP_RATIO = 0.1; // Gap as percentage of cell size
 
-export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) => {
+export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect, flipXY = false }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [picker, setPicker] = useState<PickerState>({
     isOpen: false,
@@ -95,6 +96,10 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
   // Get grid dimensions
   const height = grid.length;
   const width = grid[0].length;
+  
+  // Swap dimensions if flipXY is true
+  const displayWidth = flipXY ? height : width;
+  const displayHeight = flipXY ? width : height;
 
   // Memoize viewport size to avoid recalculating on every render
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -141,8 +146,8 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
     const actualCellSize = REFERENCE_CELL_SIZE;
     const actualGap = Math.max(8, actualCellSize * REFERENCE_GAP_RATIO);
     
-    // Calculate the actual board height for this grid
-    const actualBoardHeight = height * actualCellSize + (height - 1) * actualGap + BOARD_PADDING_Y * 2;
+    // Calculate the actual board height for this grid (use displayHeight for flipped grids)
+    const actualBoardHeight = displayHeight * actualCellSize + (displayHeight - 1) * actualGap + BOARD_PADDING_Y * 2;
     
     // Scale factor to make this board match the target height
     const scale = targetBoardHeight / actualBoardHeight;
@@ -153,14 +158,15 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
       scale,
       targetBoardHeight
     };
-  }, [viewportSize.width, viewportSize.height, height]);
+  }, [viewportSize.width, viewportSize.height, displayHeight]);
 
-  const paddingX = BOARD_PADDING_X;
-  const paddingY = BOARD_PADDING_Y;
+  // Swap padding if flipXY is true
+  const paddingX = flipXY ? BOARD_PADDING_Y : BOARD_PADDING_X;
+  const paddingY = flipXY ? BOARD_PADDING_X : BOARD_PADDING_Y;
 
   // Calculate the total grid content size (before scaling)
-  const gridContentWidth = width * cellSize + (width - 1) * gap;
-  const gridContentHeight = height * cellSize + (height - 1) * gap;
+  const gridContentWidth = displayWidth * cellSize + (displayWidth - 1) * gap;
+  const gridContentHeight = displayHeight * cellSize + (displayHeight - 1) * gap;
   
   // Calculate scaled dimensions for the wrapper
   const scaledWidth = (gridContentWidth + paddingX * 2) * scale;
@@ -246,44 +252,84 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect }) 
           <div 
             className="grid relative z-10"
             style={{ 
-              gridTemplateColumns: `repeat(${width}, ${cellSize}px)`,
-              gridTemplateRows: `repeat(${height}, ${cellSize}px)`,
+              gridTemplateColumns: `repeat(${displayWidth}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${displayHeight}, ${cellSize}px)`,
               gap: `${gap}px`,
               width: 'fit-content',
             height: 'fit-content',
             transform: `translateY(${CONTENT_OFFSET_Y}px)`,
           }}
         >
-          {grid.map((row, rowIndex) => (
-            row.map((cell, colIndex) => {
-              const cellId = getCellId(rowIndex, colIndex);
-              const isPickerTarget = picker.cellId === cellId;
-              const shouldUseLayoutId = isPickerTarget && picker.selectedShape !== null;
-              
-              return (
-                <motion.div
-                  key={cellId}
-                  className={`grid-cell-art ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
-                  style={{ 
-                    width: `${cellSize}px`, 
-                    height: `${cellSize}px`,
-                    backgroundImage: 'url(/art/shape_cell_01.png)',
-                    backgroundSize: '100% 100%',
-                    backgroundRepeat: 'no-repeat',
-                  }}
-                  whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
-                  whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
-                  onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-                >
-                  <Shape 
-                    type={cell.shape} 
-                    isLocked={cell.locked}
-                    layoutId={shouldUseLayoutId ? `shape-${cellId}-${picker.selectedShape}` : undefined}
-                  />
-                </motion.div>
-              );
-            })
-          ))}
+          {flipXY ? (
+            // Transposed rendering: iterate by rows first (displayHeight), then columns (displayWidth)
+            Array.from({ length: displayHeight }, (_, displayRow) =>
+              Array.from({ length: displayWidth }, (_, displayCol) => {
+                // Map display position back to original grid position
+                // For transpose: originalRow = displayCol, originalCol = displayRow
+                const originalRow = displayCol;
+                const originalCol = displayRow;
+                const cell = grid[originalRow][originalCol];
+                const cellId = getCellId(originalRow, originalCol);
+                const isPickerTarget = picker.cellId === cellId;
+                const shouldUseLayoutId = isPickerTarget && picker.selectedShape !== null;
+                
+                return (
+                  <motion.div
+                    key={cellId}
+                    className={`grid-cell-art ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
+                    style={{ 
+                      width: `${cellSize}px`, 
+                      height: `${cellSize}px`,
+                      backgroundImage: 'url(/art/shape_cell_01.png)',
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                    }}
+                    whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
+                    whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
+                    onClick={(e) => handleCellClick(originalRow, originalCol, e)}
+                  >
+                    <Shape 
+                      type={cell.shape} 
+                      isLocked={cell.locked}
+                      layoutId={shouldUseLayoutId ? `shape-${cellId}-${picker.selectedShape}` : undefined}
+                    />
+                  </motion.div>
+                );
+              })
+            ).flat()
+          ) : (
+            // Normal rendering: iterate by rows first, then columns
+            grid.map((row, rowIndex) => (
+              row.map((cell, colIndex) => {
+                const cellId = getCellId(rowIndex, colIndex);
+                const isPickerTarget = picker.cellId === cellId;
+                const shouldUseLayoutId = isPickerTarget && picker.selectedShape !== null;
+                
+                return (
+                  <motion.div
+                    key={cellId}
+                    className={`grid-cell-art ${cell.shape === CatShape && !cell.locked ? 'cursor-pointer' : ''}`}
+                    style={{ 
+                      width: `${cellSize}px`, 
+                      height: `${cellSize}px`,
+                      backgroundImage: 'url(/art/shape_cell_01.png)',
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                    }}
+                    whileHover={cell.shape === CatShape && !cell.locked ? { scale: 1.02 } : undefined}
+                    whileTap={cell.shape === CatShape && !cell.locked ? { scale: 0.98 } : undefined}
+                    onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
+                  >
+                    <Shape 
+                      type={cell.shape} 
+                      isLocked={cell.locked}
+                      layoutId={shouldUseLayoutId ? `shape-${cellId}-${picker.selectedShape}` : undefined}
+                    />
+                  </motion.div>
+                );
+              })
+            ))
+          )}
         </div>
 
         {picker.isOpen && (

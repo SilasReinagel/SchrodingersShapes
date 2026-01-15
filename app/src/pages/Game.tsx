@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Grid } from '../components/grid/Grid';
 import { ConstraintsPanel } from '../components/constraints/ConstraintsPanel';
 import { VictoryModal } from '../components/VictoryModal';
@@ -12,11 +12,27 @@ export const Game: React.FC = () => {
     showVictory,
     isLoaded,
     timer,
+    difficulty,
     handleCellClick,
     handleShapeSelect,
     handleCloseVictory,
     handleNextLevel,
   } = useGame();
+  
+  // Detect if we're on desktop (viewport width >= 1024px)
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Flip XY for Level 2 and Level 4 on desktop
+  const shouldFlipXY = isDesktop && (difficulty === 'level2' || difficulty === 'level4');
 
   // Show loading state if puzzle is not yet initialized
   if (!isLoaded) {
@@ -61,6 +77,7 @@ export const Game: React.FC = () => {
                 grid={puzzle.currentBoard}
                 onCellClick={handleCellClick}
                 onShapeSelect={handleShapeSelect}
+                flipXY={shouldFlipXY}
               />
             </div>
             
@@ -77,6 +94,7 @@ export const Game: React.FC = () => {
                 grid={puzzle.currentBoard}
                 boardWidth={puzzle.currentBoard[0]?.length ?? 0}
                 boardHeight={puzzle.currentBoard.length}
+                flipXY={shouldFlipXY}
               />
             </div>
             
