@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ConstraintDefinition, GameBoard } from '../../game/types';
 import { getConstraintStates } from './constraintStatus';
 import { ConstraintRow } from './ConstraintRow';
+import { ConstraintProgress } from './ConstraintProgress';
 import { createGlowFilter } from '../../constants/glowColors';
 
 interface ConstraintsPanelProps {
@@ -32,6 +33,9 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
   // Swap dimensions if flipXY is true
   const displayWidth = flipXY ? boardHeight : boardWidth;
   const displayHeight = flipXY ? boardWidth : boardHeight;
+  
+  // Use two columns when there are more than 6 constraints
+  const useTwoColumns = constraints.length > 6;
 
   return (
     <motion.div
@@ -56,17 +60,23 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
             filter: createGlowFilter(),
           }}
         >
-          {constraints.map((constraint, index) => (
-            <ConstraintRow
-              key={index}
-              constraint={constraint}
-              status={constraintStates[index]}
-              index={index}
-              boardWidth={displayWidth}
-              boardHeight={displayHeight}
-              grid={grid}
-            />
-          ))}
+          {/* Progress Indicator */}
+          <ConstraintProgress constraintStates={constraintStates} />
+          
+          {/* Constraint Rows */}
+          <div className={useTwoColumns ? "grid grid-cols-2 gap-x-4 gap-y-2" : "space-y-2"}>
+            {constraints.map((constraint, index) => (
+              <ConstraintRow
+                key={index}
+                constraint={constraint}
+                status={constraintStates[index]}
+                index={index}
+                boardWidth={displayWidth}
+                boardHeight={displayHeight}
+                grid={grid}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </motion.div>

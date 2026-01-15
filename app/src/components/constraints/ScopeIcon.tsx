@@ -71,6 +71,7 @@ export const ScopeIcon: React.FC<ScopeIconProps> = ({
 
   const highlightedCells = getHighlightedCells();
   const isCellType = isCellConstraint(constraint);
+  const isGlobal = isCountConstraint(constraint) && constraint.type === 'global';
 
   // Calculate dimensions - keep aspect ratio matching the board
   const { container: baseContainer, gap } = baseSizes[size];
@@ -89,6 +90,12 @@ export const ScopeIcon: React.FC<ScopeIconProps> = ({
         width: `${containerWidth}px`,
         height: `${containerHeight}px`,
         gap: `${gap}px`,
+        // Add a border around the entire grid for global constraints
+        ...(isGlobal && {
+          outline: '2px solid #88c9f0',
+          outlineOffset: '1px',
+          borderRadius: '3px',
+        }),
       }}
     >
       {Array.from({ length: totalCells }).map((_, i) => {
@@ -106,6 +113,9 @@ export const ScopeIcon: React.FC<ScopeIconProps> = ({
             style={{
               backgroundColor: isHighlighted ? '#88c9f0' : '#467095',
               boxShadow: isHighlighted ? '0 0 3px rgba(136, 201, 240, 0.5)' : 'none',
+              // Add a visible border to cells to show grid structure
+              // especially important for global constraints where all cells are same color
+              border: isHighlighted ? '1px solid rgba(70, 112, 149, 0.6)' : 'none',
             }}
           >
             {/* Crosshair overlay for cell constraints */}

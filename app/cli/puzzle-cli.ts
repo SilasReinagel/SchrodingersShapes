@@ -259,13 +259,13 @@ function displayGameState(state: GameState): string {
   lines.push(displayConstraints(state.board, state.constraints));
   lines.push('');
   
-  // Check for victory
+  // Check for victory - all constraints satisfied is the only requirement
+  // Cat cells are valid if the constraints allow/require them
   const allSatisfied = state.constraints.every(
     c => getConstraintState(state.board, c) === 'satisfied'
   );
-  const noCats = state.board.flat().every(cell => cell.shape !== CatShape);
   
-  if (allSatisfied && noCats) {
+  if (allSatisfied) {
     lines.push('🎉 PUZZLE SOLVED! All constraints satisfied!');
   } else if (state.constraints.some(c => getConstraintState(state.board, c) === 'violated')) {
     lines.push('⚠️  Some constraints are violated. Use UNDO or RESET to continue.');

@@ -38,6 +38,11 @@ typedef struct {
 // Level configurations
 // Note: max_constraints needs to be high enough to achieve unique solutions
 // Rule: Cats must be >= 1 and <= 20% of total cells
+//
+// Constraint quotas control difficulty by limiting direct assignments:
+// - max_cell_is: Direct "A1 = Square" constraints (lower = harder)
+// - max_cell_is_not_cat: "A1 ≠ Cat" constraints (max 1 per puzzle to reduce spam)
+// - min_count_constraints: Row/col/global counts force deduction
 static const struct {
     int width;
     int height;
@@ -45,13 +50,28 @@ static const struct {
     int max_constraints;
     int required_cats;    // Must be >= 1 and <= 20% of width*height
     int max_locked_cells;
+    // Constraint quotas for difficulty progression
+    int max_cell_is;         // Max direct cell assignments
+    int max_cell_is_not_cat; // Max "cell ≠ cat" constraints
+    int min_count_constraints; // Min count constraints required
 } LEVEL_CONFIGS[] = {
-    {0, 0, 0, 0, 0, 0},  // Placeholder for index 0
-    {2, 2, 2, 10, 1, 0}, // Level 1: 2x2 (4 cells), 1 cat (25% - exception for tiny board)
-    {2, 3, 3, 12, 1, 0}, // Level 2: 2x3 (6 cells), 1 cat (17%)
-    {3, 3, 4, 20, 1, 1}, // Level 3: 3x3 (9 cells), 1 cat (11%)
-    {3, 4, 5, 25, 1, 2}, // Level 4: 3x4 (12 cells), 1 cat (8%)
-    {4, 4, 6, 30, 2, 3}, // Level 5: 4x4 (16 cells), 2 cats (12.5%)
+    // Placeholder for index 0
+    {0, 0, 0, 0, 0, 0, 0, 0, 0},
+    // Level 1: Tutorial - allow some hand-holding
+    // 2x2 (4 cells), 1 cat, up to 2 direct assignments, 1 "≠ cat", at least 1 count
+    {2, 2, 2, 10, 1, 0, 2, 1, 1},
+    // Level 2: Easy - reduce hand-holding
+    // 2x3 (6 cells), 1 cat, up to 1 direct assignment, 1 "≠ cat", at least 2 counts
+    {2, 3, 3, 12, 1, 0, 1, 1, 2},
+    // Level 3: Medium - no direct assignments, must deduce
+    // 3x3 (9 cells), 1 cat, 0 direct assignments, 1 "≠ cat", at least 3 counts
+    {3, 3, 4, 20, 1, 1, 0, 1, 3},
+    // Level 4: Hard - pure deduction required
+    // 3x4 (12 cells), 1 cat, 0 direct assignments, 0 "≠ cat", at least 4 counts
+    {3, 4, 5, 25, 1, 2, 0, 0, 4},
+    // Level 5: Expert - complex deduction chains
+    // 4x4 (16 cells), 2 cats, 0 direct assignments, 0 "≠ cat", at least 5 counts
+    {4, 4, 6, 30, 2, 3, 0, 0, 5},
 };
 
 // Number of parallel workers for generation
@@ -68,6 +88,10 @@ GeneratorConfig generator_default_config(Difficulty level) {
         config.required_cats = LEVEL_CONFIGS[level].required_cats;
         config.max_locked_cells = LEVEL_CONFIGS[level].max_locked_cells;
         config.difficulty = level;
+        // Constraint quotas for difficulty tuning
+        config.max_cell_is = LEVEL_CONFIGS[level].max_cell_is;
+        config.max_cell_is_not_cat = LEVEL_CONFIGS[level].max_cell_is_not_cat;
+        config.min_count_constraints = LEVEL_CONFIGS[level].min_count_constraints;
     }
     
     return config;
@@ -301,45 +325,90 @@ void generator_get_profile_stats(int* solver_calls, double* solver_time_ms) {
 }
 
 /**
- * Score a fact for selection priority
- * Higher scores = more informative constraints
+ * Quota tracking for constraint selection
+ * Ensures difficulty-appropriate constraint mix
  */
-static int score_fact(const Fact* fact, const GeneratorConfig* config) {
+typedef struct {
+    int cell_is_count;         // Current "cell = shape" constraints
+    int cell_is_not_cat_count; // Current "cell ≠ cat" constraints  
+    int count_constraint_count; // Current row/col/global count constraints
+} ConstraintQuotas;
+
+/**
+ * Score a fact for selection priority
+ * 
+ * DESIGN PRINCIPLE: Reward constraints that require DEDUCTION, not direct answers.
+ * 
+ * The old scoring prioritized "informativeness" (how much is revealed).
+ * The new scoring prioritizes "deductive necessity" (how much thinking is required).
+ * 
+ * Key changes:
+ * - Row/column counts are now HIGHEST priority (force cross-referencing)
+ * - "Cell = Shape" is now LOWEST priority (removes puzzle element)
+ * - "Cell ≠ Cat" is limited (mostly redundant information)
+ * - Quotas are enforced by returning -1000 when limits exceeded
+ */
+static int score_fact(const Fact* fact, const GeneratorConfig* config, ConstraintQuotas* quotas) {
     int score = 0;
     
     switch (fact->type) {
         case FACT_CELL_IS:
-            // Cell facts are very constraining
-            score = 100;
-            // Prefer non-cat reveals (more informative)
-            if (fact->shape != SHAPE_CAT) score += 20;
+            // Direct assignments should be RARE - they remove the puzzle element
+            // Only allow up to max_cell_is per puzzle (based on difficulty)
+            if (quotas->cell_is_count >= config->max_cell_is) {
+                return -1000;  // Quota exceeded - skip this constraint
+            }
+            // Low base score - these are the "answer key" constraints
+            score = 20;
+            // Cat reveals are less useful (superposition state)
+            if (fact->shape == SHAPE_CAT) score -= 10;
             break;
             
         case FACT_CELL_IS_NOT:
-            // "Is not" constraints are now highly valued!
-            // "Is not Cat" is especially powerful - forces concrete shape
             if (fact->shape == SHAPE_CAT) {
-                score = 120;  // Very constraining - eliminates superposition
+                // "Cell ≠ Cat" constraints are mostly redundant
+                // Limit to 1 per puzzle as per design doc
+                if (quotas->cell_is_not_cat_count >= config->max_cell_is_not_cat) {
+                    return -1000;  // Quota exceeded - skip
+                }
+                score = 30;  // Low priority - often obvious
             } else {
-                score = 80;   // Still good - eliminates one concrete option
+                // "Cell ≠ [concrete shape]" is more interesting
+                // Forces elimination reasoning: "not square, not circle, must be triangle"
+                score = 60;
             }
             break;
             
         case FACT_ROW_COUNT:
         case FACT_COL_COUNT:
-            // Row/column constraints are moderately constraining
-            score = 70;
-            // Zero or full counts are more constraining
-            if (fact->count == 0 || fact->count == config->width) {
-                score += 30;
+            // ROW/COLUMN COUNTS ARE THE HEART OF THE PUZZLE
+            // These force players to cross-reference and deduce
+            score = 100;  // Highest base priority!
+            
+            // Boundary counts (0 or full) are especially powerful
+            // "Row has exactly 0 triangles" eliminates an option from all cells in row
+            if (fact->count == 0) {
+                score += 30;  // Very powerful for elimination
+            }
+            // Full count means all cells in row/col are that shape
+            int dimension = (fact->type == FACT_ROW_COUNT) ? config->width : config->height;
+            if (fact->count == dimension) {
+                score += 20;  // Powerful but more obvious
+            }
+            // Middle counts (e.g., "exactly 2 triangles in row of 4") force counting
+            if (fact->count > 0 && fact->count < dimension) {
+                score += 15;  // Requires careful tracking
             }
             break;
             
         case FACT_GLOBAL_COUNT:
-            // Global constraints are less constraining
-            score = 40;
-            // Zero counts (none) are very constraining
-            if (fact->count == 0) score += 50;
+            // Global counts are good for overall constraint
+            score = 70;
+            // Zero counts are very constraining (shape doesn't appear)
+            if (fact->count == 0) score += 40;
+            // Full counts are interesting (all cells are one shape - rare)
+            int total = config->width * config->height;
+            if (fact->count == total) score += 30;
             break;
     }
     
@@ -347,16 +416,54 @@ static int score_fact(const Fact* fact, const GeneratorConfig* config) {
 }
 
 /**
+ * Update quota counters when a constraint is added
+ */
+static void update_quotas_for_constraint(const Constraint* c, ConstraintQuotas* quotas) {
+    if (c->type == CONSTRAINT_CELL) {
+        if (c->op == OP_IS) {
+            quotas->cell_is_count++;
+        } else if (c->op == OP_IS_NOT && c->shape == SHAPE_CAT) {
+            quotas->cell_is_not_cat_count++;
+        }
+    } else {
+        // Row, column, or global count constraint
+        quotas->count_constraint_count++;
+    }
+}
+
+/**
+ * Check if adding this constraint would exceed quotas
+ */
+static bool would_exceed_quota(const Constraint* c, const ConstraintQuotas* quotas,
+                               const GeneratorConfig* config) {
+    if (c->type == CONSTRAINT_CELL) {
+        if (c->op == OP_IS && quotas->cell_is_count >= config->max_cell_is) {
+            return true;
+        }
+        if (c->op == OP_IS_NOT && c->shape == SHAPE_CAT && 
+            quotas->cell_is_not_cat_count >= config->max_cell_is_not_cat) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Select constraints to create a uniquely solvable puzzle
  * Uses reusable solver context for efficiency
  * 
- * OPTIMIZATION: Add many constraints first, then check solution count.
- * Since all facts are derived from the true solution, conflicts are rare.
+ * DESIGN: Enforces constraint quotas to ensure appropriate difficulty:
+ * - Limits direct "cell = shape" assignments (easier puzzles allow more)
+ * - Limits "cell ≠ cat" spam (max 1 per puzzle)
+ * - Requires minimum count constraints (forces deduction)
  */
 static bool select_constraints(const GeneratorConfig* config, RNG* rng, 
                               const uint8_t* solution_board, Fact* facts, 
                               int num_facts, Puzzle* puzzle,
                               SolverContext* solver_ctx) {
+    // Initialize quota tracking
+    ConstraintQuotas quotas = {0, 0, 0};
+    
     // Count actual cats in solution board
     int cat_count = 0;
     int total_cells = config->width * config->height;
@@ -368,8 +475,6 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
     
     // ALWAYS add global cat count constraint first (when cats > 0)
     // This tells the player exactly how many cats are in the puzzle
-    // Note: For 0 cats, we skip this since the solver's pruning logic
-    // has issues with "exactly 0 cats" constraints (SHAPE_CAT = superposition state)
     puzzle->num_constraints = 0;
     if (cat_count > 0) {
         puzzle->constraints[puzzle->num_constraints++] = (Constraint){
@@ -378,20 +483,28 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
             .shape = SHAPE_CAT,
             .count = cat_count
         };
+        quotas.count_constraint_count++;  // This counts as a count constraint
         
         if (g_debug) {
             printf("    [DEBUG] Added mandatory constraint: exactly %d cat(s)\n", cat_count);
         }
     }
     
-    // Shuffle facts with weighted selection
-    // Simple approach: sort by score + random factor
+    // Score facts with quota awareness
     int indices[MAX_FACTS];
     int scores[MAX_FACTS];
     
+    // We need a temporary quota tracker to properly score all facts
+    // Each fact type gets scored assuming it might be selected
     for (int i = 0; i < num_facts; i++) {
         indices[i] = i;
-        scores[i] = score_fact(&facts[i], config) + rng_int(rng, 50);
+        
+        // Create temp quotas to check if this fact would exceed limits
+        ConstraintQuotas temp_quotas = quotas;
+        int base_score = score_fact(&facts[i], config, &temp_quotas);
+        
+        // Add randomness (but not enough to overcome -1000 penalty)
+        scores[i] = base_score + rng_int(rng, 40);
     }
     
     // Simple insertion sort by score (descending)
@@ -410,9 +523,13 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
         }
     }
     
+    if (g_debug) {
+        printf("    [DEBUG] Quotas: max_cell_is=%d, max_is_not_cat=%d, min_counts=%d\n",
+               config->max_cell_is, config->max_cell_is_not_cat, config->min_count_constraints);
+    }
+    
     // PHASE 1: Add constraints aggressively without checking
     // Scale initial batch based on board size - larger boards need more constraints
-    // Note: num_constraints already has 1 (the mandatory cat count constraint)
     int board_size = total_cells;
     int batch_bonus = (board_size >= 12) ? 8 : (board_size >= 9) ? 4 : 2;
     int target_constraints = config->min_constraints + batch_bonus;
@@ -421,6 +538,9 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
     }
     
     for (int i = 0; i < num_facts && puzzle->num_constraints < target_constraints; i++) {
+        // Skip facts with negative scores (quota exceeded during scoring)
+        if (scores[i] < 0) continue;
+        
         Fact* fact = &facts[indices[i]];
         Constraint c = fact_to_constraint(fact, config->width);
         
@@ -428,7 +548,13 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
             continue;
         }
         
+        // Check quotas before adding (double-check since scoring was predictive)
+        if (would_exceed_quota(&c, &quotas, config)) {
+            continue;
+        }
+        
         puzzle->constraints[puzzle->num_constraints++] = c;
+        update_quotas_for_constraint(&c, &quotas);
     }
     
     // PHASE 2: Check if we have unique solution
@@ -457,19 +583,23 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
     }
     
     // PHASE 3: Multiple solutions - add more constraints one by one
+    // Continue to enforce quotas during this phase
     int fact_start = 0;
     // Find where we left off
     for (int i = 0; i < num_facts; i++) {
         Fact* fact = &facts[indices[i]];
         Constraint c = fact_to_constraint(fact, config->width);
-        if (!is_redundant_or_conflicting(puzzle, &c)) {
-            // This constraint wasn't added yet
+        if (!is_redundant_or_conflicting(puzzle, &c) && !would_exceed_quota(&c, &quotas, config)) {
+            // This constraint wasn't added yet and won't exceed quotas
             fact_start = i;
             break;
         }
     }
     
     for (int i = fact_start; i < num_facts && puzzle->num_constraints < config->max_constraints; i++) {
+        // Skip facts with negative scores (quota exceeded)
+        if (scores[i] < 0) continue;
+        
         Fact* fact = &facts[indices[i]];
         Constraint c = fact_to_constraint(fact, config->width);
         
@@ -477,8 +607,14 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
             continue;
         }
         
+        // Enforce quotas in phase 3 as well
+        if (would_exceed_quota(&c, &quotas, config)) {
+            continue;
+        }
+        
         int prev_count = puzzle->num_constraints;
         puzzle->constraints[puzzle->num_constraints++] = c;
+        update_quotas_for_constraint(&c, &quotas);
         solver_precompute_masks(puzzle);
         
         for (int j = 0; j < total_cells; j++) {
@@ -495,9 +631,25 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
         }
         
         if (result.solution_count == 1) {
+            if (g_debug) {
+                printf("    [DEBUG] Final quotas: cell_is=%d, is_not_cat=%d, counts=%d\n",
+                       quotas.cell_is_count, quotas.cell_is_not_cat_count, 
+                       quotas.count_constraint_count);
+            }
             return true;
         } else if (result.solution_count == 0) {
+            // Roll back constraint and quota tracking
             puzzle->num_constraints = prev_count;
+            // Decrement the appropriate quota counter
+            if (c.type == CONSTRAINT_CELL) {
+                if (c.op == OP_IS) {
+                    quotas.cell_is_count--;
+                } else if (c.op == OP_IS_NOT && c.shape == SHAPE_CAT) {
+                    quotas.cell_is_not_cat_count--;
+                }
+            } else {
+                quotas.count_constraint_count--;
+            }
         }
     }
     

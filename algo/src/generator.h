@@ -16,6 +16,10 @@
 
 /**
  * Generator configuration
+ * 
+ * Constraint quotas control puzzle difficulty by limiting direct assignments:
+ * - Lower levels allow more direct "cell = shape" constraints (easier)
+ * - Higher levels force more deduction through count constraints (harder)
  */
 typedef struct {
     int width;
@@ -25,6 +29,11 @@ typedef struct {
     int max_constraints;
     int required_cats;    // Number of cat cells in solution
     int max_locked_cells; // Max cells to pre-reveal (locked)
+    
+    // Constraint quotas for difficulty tuning
+    int max_cell_is;         // Max "cell = shape" direct assignments (0 = none allowed)
+    int max_cell_is_not_cat; // Max "cell ≠ cat" constraints (1 = allow one per puzzle)
+    int min_count_constraints; // Min row/col/global count constraints required
 } GeneratorConfig;
 
 /**

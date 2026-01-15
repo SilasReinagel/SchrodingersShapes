@@ -31,7 +31,12 @@ const countShapes = (
   cells.forEach(cell => {
     if (cell.shape === CatShape) {
       cats++;
-      if (countCatsAs === 'match' && shape !== undefined && shape !== CatShape) {
+      // When counting Cats specifically, Cat cells should match
+      if (shape === CatShape) {
+        matching++;
+        committed++;  // Cat cells are "committed" to being Cat when that's what we're counting
+      } else if (countCatsAs === 'match' && shape !== undefined) {
+        // For non-Cat shapes, Cat cells count as potential matches
         matching++;
       }
     } else if (shape === undefined || cell.shape === shape) {
@@ -84,22 +89,23 @@ const checkCountConstraintState = (
   
   switch (rule.operator) {
     case 'exactly': {
-      // Satisfied: exact match
-      if (matching === rule.count) {
+      // For "exactly N" constraints, we check committed shapes only
+      // Cat cells are in superposition - they don't count toward exact counts
+      // This allows puzzles with Cat requirements to be properly validated
+      
+      // Satisfied: have exactly the right number of committed shapes
+      if (committed === rule.count) {
         return 'satisfied';
       }
       // Violated: already have too many committed shapes
       if (committed > rule.count) {
         return 'violated';
       }
-      // Violated: can't possibly reach count even if all cats become target
+      // Violated: not enough potential shapes even if all cats become target
       if (committed + cats < rule.count) {
-        // Only violated if no more cats to place (all cells filled)
-        const totalCells = cells.length;
-        if (totalCells === cells.filter(c => c.shape !== CatShape).length + cats && matching < rule.count) {
-          return 'in_progress'; // Still have cats that could help
-        }
+        return 'violated';
       }
+      // In progress: could still reach target if cats become this shape
       return 'in_progress';
     }
     

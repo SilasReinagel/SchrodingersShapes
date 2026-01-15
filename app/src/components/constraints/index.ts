@@ -1,5 +1,6 @@
 export { ConstraintsPanel } from './ConstraintsPanel';
 export { ConstraintRow, type ConstraintState } from './ConstraintRow';
+export { ConstraintProgress } from './ConstraintProgress';
 export { ScopeIcon } from './ScopeIcon';
 export { OperatorDisplay } from './OperatorDisplay';
 export { ShapeIcon } from './ShapeIcon';

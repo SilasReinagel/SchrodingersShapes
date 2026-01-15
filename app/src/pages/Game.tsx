@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Grid } from '../components/grid/Grid';
 import { ConstraintsPanel } from '../components/constraints/ConstraintsPanel';
 import { VictoryModal } from '../components/VictoryModal';
 import { TopBar } from '../components/TopBar';
 import { BottomBar } from '../components/BottomBar';
 import { useGame } from '../contexts/GameContext';
+import { useTutorial } from '../contexts/TutorialContext';
+import { TutorialOverlay } from '../components/tutorial/TutorialOverlay';
 
 export const Game: React.FC = () => {
   const {
@@ -18,6 +20,9 @@ export const Game: React.FC = () => {
     handleCloseVictory,
     handleNextLevel,
   } = useGame();
+  
+  const { resetIdleTimer, markTutorialComplete, isFirstTimeUser } = useTutorial();
+  const gridContainerRef = useRef<HTMLDivElement>(null);
   
   // Detect if we're on desktop (viewport width >= 1024px)
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
@@ -33,6 +38,24 @@ export const Game: React.FC = () => {
   
   // Flip XY for Level 2 and Level 4 on desktop
   const shouldFlipXY = isDesktop && (difficulty === 'level2' || difficulty === 'level4');
+  
+  // Wrap click handlers to reset tutorial idle timer
+  const handleCellClickWithTutorial = (row: number, col: number) => {
+    resetIdleTimer();
+    handleCellClick(row, col);
+  };
+  
+  const handleShapeSelectWithTutorial = (row: number, col: number, shape: Parameters<typeof handleShapeSelect>[2]) => {
+    resetIdleTimer();
+    handleShapeSelect(row, col, shape);
+  };
+  
+  // Mark tutorial complete when player wins for the first time
+  useEffect(() => {
+    if (showVictory && isFirstTimeUser) {
+      markTutorialComplete();
+    }
+  }, [showVictory, isFirstTimeUser, markTutorialComplete]);
 
   // Show loading state if puzzle is not yet initialized
   if (!isLoaded) {
@@ -44,6 +67,9 @@ export const Game: React.FC = () => {
   }
 
   if (!puzzle) return null;
+  
+  // Use wider constraint panel when there are many constraints
+  const hasManyConstraints = puzzle.definition.constraints.length > 6;
 
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden">
@@ -67,16 +93,16 @@ export const Game: React.FC = () => {
           }}
         >
           {/* Game Content - Grid on left/center, Constraints on right */}
-          <div className="flex items-center justify-center gap-8 w-full h-full max-w-[1800px]">
+          <div className="flex items-center justify-center gap-12 w-full h-full max-w-[1800px]">
             {/* Left spacer for symmetry on large screens */}
             <div className="hidden xl:block flex-1" />
             
             {/* Puzzle Grid - Centered */}
-            <div className="flex-shrink-0 flex items-center justify-center">
+            <div ref={gridContainerRef} className="flex-shrink-0 flex items-center justify-center">
               <Grid 
                 grid={puzzle.currentBoard}
-                onCellClick={handleCellClick}
-                onShapeSelect={handleShapeSelect}
+                onCellClick={handleCellClickWithTutorial}
+                onShapeSelect={handleShapeSelectWithTutorial}
                 flipXY={shouldFlipXY}
               />
             </div>
@@ -85,7 +111,7 @@ export const Game: React.FC = () => {
             <div 
               className="flex-shrink-0 flex items-center justify-center h-full"
               style={{
-                width: 'clamp(280px, 25vw, 400px)',
+                width: hasManyConstraints ? 'clamp(480px, 35vw, 580px)' : 'clamp(280px, 25vw, 400px)',
                 maxHeight: 'calc(100vh - 200px)',
               }}
             >
@@ -111,6 +137,9 @@ export const Game: React.FC = () => {
         time={timer}
         onNextLevel={handleNextLevel}
       />
+      
+      {/* Tutorial Overlay - Shows idle hint for first-time users */}
+      <TutorialOverlay gridRef={gridContainerRef} />
     </div>
   );
 };
