@@ -16,11 +16,11 @@ type ShapeStyle = {
 // Neon effect colors
 const NEON_CYAN = '#00E5FF';
 
-export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = false, layoutId }) => {
+export const Shape: React.FC<ShapeProps> = ({ type, className = '', layoutId }) => {
   if (type === CatShape) {
     return (
       <motion.div
-        className={`cat ${className} ${isLocked ? 'opacity-50' : ''}`}
+        className={`cat ${className}`}
         initial={{ rotate: 0 }}
         animate={{ 
           rotate: [-5, 5, -5]
@@ -79,9 +79,9 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
   if (layoutId) {
     return (
       <motion.div
-        className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative flex items-center justify-center`}
+        className={`shape ${style.className} ${className} relative flex items-center justify-center`}
         initial={{ opacity: 0 }}
-        animate={{ opacity: isLocked ? 0.5 : 1 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
       >
         <motion.div
@@ -102,9 +102,9 @@ export const Shape: React.FC<ShapeProps> = ({ type, className = '', isLocked = f
   // Regular rendering without layoutId (for backward compatibility)
   return (
     <motion.div
-      className={`shape ${style.className} ${className} ${isLocked ? 'opacity-50' : ''} relative flex items-center justify-center`}
-      initial={{ scale: 0.8, opacity: isLocked ? 0.5 : 0 }}
-      animate={{ scale: 1, opacity: isLocked ? 0.5 : 1 }}
+      className={`shape ${style.className} ${className} relative flex items-center justify-center`}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
       transition={{ 
         type: "spring",
         stiffness: 400,

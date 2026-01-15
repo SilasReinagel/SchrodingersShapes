@@ -57,5 +57,10 @@ bool generator_validate_unique(Puzzle* puzzle);
  */
 void generator_set_debug(bool enable);
 
+/**
+ * Get profiling statistics (only valid after debug generation)
+ */
+void generator_get_profile_stats(int* solver_calls, double* solver_time_ms);
+
 #endif // GENERATOR_H
 

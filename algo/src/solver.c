@@ -224,6 +224,10 @@ static bool all_constraints_satisfied(const Puzzle* p) {
 /**
  * Check if any constraint is definitely violated (early pruning)
  * Enhanced with tighter bounds checking for count constraints
+ * 
+ * Note: Cat count constraints are handled specially because SHAPE_CAT serves
+ * as both "superposition" (unresolved) and "actual cat" in solutions. We can't
+ * easily distinguish them during solving, so we skip tight bounds pruning for cats.
  */
 static bool has_violated_constraint(const Puzzle* p) {
     for (int i = 0; i < p->num_constraints; i++) {
@@ -246,6 +250,11 @@ static bool has_violated_constraint(const Puzzle* p) {
             }
         } else {
             // Count constraint - enhanced bounds checking
+            // Skip tight bounds checking for cat constraints (SHAPE_CAT is ambiguous)
+            if (c->shape == SHAPE_CAT) {
+                continue;  // Cat count validated at end, not during pruning
+            }
+            
             int committed_count = count_committed_shapes(p, c->cell_mask, c->shape);
             int cat_count = count_cats(p, c->cell_mask);
             int max_possible = committed_count + cat_count;

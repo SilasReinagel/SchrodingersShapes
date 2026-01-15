@@ -76,12 +76,8 @@ const getCountDisplay = (constraint: ConstraintDefinition): string | null => {
  * Check if shape should show forbidden overlay
  */
 const isForbidden = (constraint: ConstraintDefinition): boolean => {
-  if (isCountConstraint(constraint)) {
-    // Show forbidden overlay for 'none' operator or when count is 0
-    return constraint.rule.operator === 'none' || constraint.rule.count === 0;
-  }
-  // For cell constraints with 'is_not', the ≠ symbol is sufficient
-  // so we don't need the red-line cross through
+  // Don't show forbidden overlay when operator displays "≠" symbol
+  // The ≠ symbol itself is sufficient to indicate the constraint
   return false;
 };
 

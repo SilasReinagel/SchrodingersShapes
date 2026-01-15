@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <time.h>
 
 // Fact types for constraint selection
 typedef enum {
@@ -36,20 +37,21 @@ typedef struct {
 
 // Level configurations
 // Note: max_constraints needs to be high enough to achieve unique solutions
+// Rule: Cats must be >= 1 and <= 20% of total cells
 static const struct {
     int width;
     int height;
     int min_constraints;
     int max_constraints;
-    int required_cats;
+    int required_cats;    // Must be >= 1 and <= 20% of width*height
     int max_locked_cells;
 } LEVEL_CONFIGS[] = {
     {0, 0, 0, 0, 0, 0},  // Placeholder for index 0
-    {2, 2, 2, 10, 0, 0}, // Level 1: 2x2, simple
-    {2, 3, 3, 12, 0, 0}, // Level 2: 2x3
-    {3, 3, 4, 20, 1, 1}, // Level 3: 3x3, 1 cat, 1 locked
-    {3, 4, 5, 25, 1, 2}, // Level 4: 3x4, 1 cat, 2 locked
-    {4, 4, 6, 30, 2, 3}, // Level 5: 4x4, 2 cats, 3 locked
+    {2, 2, 2, 10, 1, 0}, // Level 1: 2x2 (4 cells), 1 cat (25% - exception for tiny board)
+    {2, 3, 3, 12, 1, 0}, // Level 2: 2x3 (6 cells), 1 cat (17%)
+    {3, 3, 4, 20, 1, 1}, // Level 3: 3x3 (9 cells), 1 cat (11%)
+    {3, 4, 5, 25, 1, 2}, // Level 4: 3x4 (12 cells), 1 cat (8%)
+    {4, 4, 6, 30, 2, 3}, // Level 5: 4x4 (16 cells), 2 cats (12.5%)
 };
 
 // Number of parallel workers for generation
@@ -281,8 +283,21 @@ static bool is_redundant_or_conflicting(const Puzzle* puzzle, const Constraint* 
 // Debug flag - set to true to enable debug output
 static bool g_debug = false;
 
+// Profiling counters
+static int g_solver_calls = 0;
+static double g_solver_time_ms = 0;
+
 void generator_set_debug(bool enable) {
     g_debug = enable;
+    if (enable) {
+        g_solver_calls = 0;
+        g_solver_time_ms = 0;
+    }
+}
+
+void generator_get_profile_stats(int* solver_calls, double* solver_time_ms) {
+    if (solver_calls) *solver_calls = g_solver_calls;
+    if (solver_time_ms) *solver_time_ms = g_solver_time_ms;
 }
 
 /**
@@ -334,12 +349,40 @@ static int score_fact(const Fact* fact, const GeneratorConfig* config) {
 /**
  * Select constraints to create a uniquely solvable puzzle
  * Uses reusable solver context for efficiency
+ * 
+ * OPTIMIZATION: Add many constraints first, then check solution count.
+ * Since all facts are derived from the true solution, conflicts are rare.
  */
 static bool select_constraints(const GeneratorConfig* config, RNG* rng, 
                               const uint8_t* solution_board, Fact* facts, 
                               int num_facts, Puzzle* puzzle,
                               SolverContext* solver_ctx) {
-    (void)solution_board; // Unused for now
+    // Count actual cats in solution board
+    int cat_count = 0;
+    int total_cells = config->width * config->height;
+    for (int i = 0; i < total_cells; i++) {
+        if (solution_board[i] == SHAPE_CAT) {
+            cat_count++;
+        }
+    }
+    
+    // ALWAYS add global cat count constraint first (when cats > 0)
+    // This tells the player exactly how many cats are in the puzzle
+    // Note: For 0 cats, we skip this since the solver's pruning logic
+    // has issues with "exactly 0 cats" constraints (SHAPE_CAT = superposition state)
+    puzzle->num_constraints = 0;
+    if (cat_count > 0) {
+        puzzle->constraints[puzzle->num_constraints++] = (Constraint){
+            .type = CONSTRAINT_GLOBAL,
+            .op = OP_EXACTLY,
+            .shape = SHAPE_CAT,
+            .count = cat_count
+        };
+        
+        if (g_debug) {
+            printf("    [DEBUG] Added mandatory constraint: exactly %d cat(s)\n", cat_count);
+        }
+    }
     
     // Shuffle facts with weighted selection
     // Simple approach: sort by score + random factor
@@ -367,11 +410,17 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
         }
     }
     
-    // Try adding constraints until puzzle has unique solution
-    puzzle->num_constraints = 0;
-    int total_cells = config->width * config->height;
+    // PHASE 1: Add constraints aggressively without checking
+    // Scale initial batch based on board size - larger boards need more constraints
+    // Note: num_constraints already has 1 (the mandatory cat count constraint)
+    int board_size = total_cells;
+    int batch_bonus = (board_size >= 12) ? 8 : (board_size >= 9) ? 4 : 2;
+    int target_constraints = config->min_constraints + batch_bonus;
+    if (target_constraints > config->max_constraints) {
+        target_constraints = config->max_constraints;
+    }
     
-    for (int i = 0; i < num_facts && puzzle->num_constraints < config->max_constraints; i++) {
+    for (int i = 0; i < num_facts && puzzle->num_constraints < target_constraints; i++) {
         Fact* fact = &facts[indices[i]];
         Constraint c = fact_to_constraint(fact, config->width);
         
@@ -379,58 +428,94 @@ static bool select_constraints(const GeneratorConfig* config, RNG* rng,
             continue;
         }
         
-        // Tentatively add constraint
+        puzzle->constraints[puzzle->num_constraints++] = c;
+    }
+    
+    // PHASE 2: Check if we have unique solution
+    solver_precompute_masks(puzzle);
+    for (int j = 0; j < total_cells; j++) {
+        if (!is_locked(puzzle, j)) puzzle->board[j] = SHAPE_CAT;
+    }
+    
+    clock_t solve_start = clock();
+    SolverResult result = solver_solve_ex(solver_ctx, puzzle, 2);
+    clock_t solve_end = clock();
+    
+    if (g_debug) {
+        g_solver_calls++;
+        g_solver_time_ms += ((double)(solve_end - solve_start) / CLOCKS_PER_SEC) * 1000.0;
+        printf("    [DEBUG] After %d constraints: %llu solutions\n", 
+               puzzle->num_constraints, (unsigned long long)result.solution_count);
+    }
+    
+    if (result.solution_count == 1) {
+        return true;  // Success!
+    }
+    
+    if (result.solution_count == 0) {
+        return false;  // Conflict - try different solution board
+    }
+    
+    // PHASE 3: Multiple solutions - add more constraints one by one
+    int fact_start = 0;
+    // Find where we left off
+    for (int i = 0; i < num_facts; i++) {
+        Fact* fact = &facts[indices[i]];
+        Constraint c = fact_to_constraint(fact, config->width);
+        if (!is_redundant_or_conflicting(puzzle, &c)) {
+            // This constraint wasn't added yet
+            fact_start = i;
+            break;
+        }
+    }
+    
+    for (int i = fact_start; i < num_facts && puzzle->num_constraints < config->max_constraints; i++) {
+        Fact* fact = &facts[indices[i]];
+        Constraint c = fact_to_constraint(fact, config->width);
+        
+        if (is_redundant_or_conflicting(puzzle, &c)) {
+            continue;
+        }
+        
         int prev_count = puzzle->num_constraints;
         puzzle->constraints[puzzle->num_constraints++] = c;
         solver_precompute_masks(puzzle);
         
-        // Reset board to all cats for solve check
         for (int j = 0; j < total_cells; j++) {
-            if (!is_locked(puzzle, j)) {
-                puzzle->board[j] = SHAPE_CAT;
-            }
+            if (!is_locked(puzzle, j)) puzzle->board[j] = SHAPE_CAT;
         }
         
-        // Check solution count - OPTIMIZATION: stop at 2 solutions
-        // We only need to know if it's 0, 1, or more than 1
-        SolverResult result = solver_solve_ex(solver_ctx, puzzle, 2);
+        clock_t start = clock();
+        result = solver_solve_ex(solver_ctx, puzzle, 2);
+        clock_t end = clock();
         
-        if (g_debug && puzzle->num_constraints <= 5) {
-            printf("    [DEBUG] After constraint %d: %llu solutions\n", 
-                   puzzle->num_constraints, (unsigned long long)result.solution_count);
+        if (g_debug) {
+            g_solver_calls++;
+            g_solver_time_ms += ((double)(end - start) / CLOCKS_PER_SEC) * 1000.0;
         }
         
         if (result.solution_count == 1) {
-            // Found unique solution! Make sure we have minimum constraints
-            if (puzzle->num_constraints >= config->min_constraints) {
-                // Reset board for return
-                for (int j = 0; j < total_cells; j++) {
-                    if (!is_locked(puzzle, j)) {
-                        puzzle->board[j] = SHAPE_CAT;
-                    }
-                }
-                return true;
-            }
-            // Continue adding constraints for variety
+            return true;
         } else if (result.solution_count == 0) {
-            // Constraint made puzzle unsolvable, remove it
             puzzle->num_constraints = prev_count;
-            if (g_debug) {
-                printf("    [DEBUG] Removed constraint (unsolvable)\n");
-            }
         }
-        // Multiple solutions: keep constraint and continue
     }
     
-    // Final check - reset board first
+    // Final check
     for (int j = 0; j < total_cells; j++) {
-        if (!is_locked(puzzle, j)) {
-            puzzle->board[j] = SHAPE_CAT;
-        }
+        if (!is_locked(puzzle, j)) puzzle->board[j] = SHAPE_CAT;
     }
     solver_precompute_masks(puzzle);
     
-    SolverResult result = solver_solve_ex(solver_ctx, puzzle, 2);
+    clock_t final_start = clock();
+    result = solver_solve_ex(solver_ctx, puzzle, 2);
+    clock_t final_end = clock();
+    
+    if (g_debug) {
+        g_solver_calls++;
+        g_solver_time_ms += ((double)(final_end - final_start) / CLOCKS_PER_SEC) * 1000.0;
+    }
+    
     return result.solution_count == 1;
 }
 

@@ -288,6 +288,67 @@ static void solve_puzzle(Difficulty level, uint64_t seed) {
 }
 
 /**
+ * Profile a single puzzle generation with detailed timing
+ */
+static void profile_generation(Difficulty level, uint64_t seed) {
+    printf("\n" COLOR_CYAN "=== Profiling Single Generation ===" COLOR_RESET "\n");
+    printf("Level: %d, Seed: %lu\n\n", level, (unsigned long)seed);
+    
+    GeneratorConfig config = generator_default_config(level);
+    printf("Config: %dx%d board, %d-%d constraints, %d cats, %d locked\n\n",
+           config.width, config.height,
+           config.min_constraints, config.max_constraints,
+           config.required_cats, config.max_locked_cells);
+    
+    // Enable debug output
+    generator_set_debug(true);
+    
+    clock_t start = clock();
+    
+    Puzzle p;
+    bool success = generator_generate(&config, seed, &p);
+    
+    clock_t end = clock();
+    double gen_time = ((double)(end - start) / CLOCKS_PER_SEC) * 1000.0;
+    
+    generator_set_debug(false);
+    
+    // Get profiling stats
+    int solver_calls;
+    double solver_time_ms;
+    generator_get_profile_stats(&solver_calls, &solver_time_ms);
+    
+    printf("\n" COLOR_CYAN "Generation Result:" COLOR_RESET "\n");
+    printf("  Success:      %s\n", success ? COLOR_GREEN "YES" COLOR_RESET : COLOR_RED "NO" COLOR_RESET);
+    printf("  Gen Time:     %.3f ms\n", gen_time);
+    printf("  Solver Calls: %d\n", solver_calls);
+    printf("  Solver Time:  %.3f ms (%.1f%% of gen time)\n", 
+           solver_time_ms, gen_time > 0 ? (solver_time_ms / gen_time * 100) : 0);
+    printf("  Avg per Call: %.3f ms\n", solver_calls > 0 ? solver_time_ms / solver_calls : 0);
+    
+    if (success) {
+        printf("  Constraints:  %d\n", p.num_constraints);
+        
+        puzzle_print(&p);
+        
+        // Now solve it and time that separately
+        printf("\n" COLOR_CYAN "Solving (final puzzle)..." COLOR_RESET "\n");
+        SolverResult result = solver_solve(&p, false);
+        
+        printf("  Solutions:    %lu\n", (unsigned long)result.solution_count);
+        printf("  States:       %lu\n", (unsigned long)result.states_explored);
+        printf("  Solve Time:   %.3f ms\n", result.time_ms);
+    }
+    
+    printf("\n" COLOR_YELLOW "Analysis:" COLOR_RESET "\n");
+    printf("  select_constraints() calls solver_solve_ex() after EVERY constraint.\n");
+    printf("  For Level 5, this happens %d times across multiple solution board attempts.\n", 
+           solver_calls);
+    printf("  Total solver time: %.1f ms = %.1f%% of generation time.\n",
+           solver_time_ms, gen_time > 0 ? (solver_time_ms / gen_time * 100) : 0);
+}
+
+/**
  * Batch generate and validate puzzles
  */
 static void batch_validate(Difficulty level, int count) {
@@ -338,6 +399,7 @@ static void print_usage(const char* prog) {
     printf("  --test              Run test suite\n");
     printf("  --benchmark         Run performance benchmark\n");
     printf("  --solve             Generate and solve a single puzzle\n");
+    printf("  --profile           Profile a single puzzle generation with timing\n");
     printf("  --batch             Batch generate and validate puzzles\n");
     printf("  --level N           Set difficulty level (1-5, default: 3)\n");
     printf("  --seed S            Set random seed (default: time-based)\n");
@@ -350,6 +412,7 @@ int main(int argc, char* argv[]) {
     bool do_test = false;
     bool do_benchmark = false;
     bool do_solve = false;
+    bool do_profile = false;
     bool do_batch = false;
     Difficulty level = LEVEL_3;
     uint64_t seed = (uint64_t)time(NULL);
@@ -363,6 +426,8 @@ int main(int argc, char* argv[]) {
             do_benchmark = true;
         } else if (strcmp(argv[i], "--solve") == 0) {
             do_solve = true;
+        } else if (strcmp(argv[i], "--profile") == 0) {
+            do_profile = true;
         } else if (strcmp(argv[i], "--batch") == 0) {
             do_batch = true;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
@@ -379,7 +444,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Default action
-    if (!do_test && !do_benchmark && !do_solve && !do_batch) {
+    if (!do_test && !do_benchmark && !do_solve && !do_profile && !do_batch) {
         do_solve = true;
     }
     
@@ -396,6 +461,10 @@ int main(int argc, char* argv[]) {
     
     if (do_solve) {
         solve_puzzle(level, seed);
+    }
+    
+    if (do_profile) {
+        profile_generation(level, seed);
     }
     
     if (do_batch) {
