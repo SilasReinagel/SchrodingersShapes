@@ -6,6 +6,7 @@ interface ScopeIconProps {
   boardWidth: number;
   boardHeight: number;
   size?: 'sm' | 'md' | 'lg';
+  flipXY?: boolean;
 }
 
 // Base sizes for a 3x3 grid - we scale proportionally for other sizes
@@ -33,36 +34,38 @@ export const ScopeIcon: React.FC<ScopeIconProps> = ({
   constraint, 
   boardWidth, 
   boardHeight, 
-  size = 'md' 
+  size = 'md',
+  flipXY = false
 }) => {
   const totalCells = boardWidth * boardHeight;
 
-  // Determine which cells should be highlighted
+  // When flipXY is active, data rows are display columns and vice versa.
+  // boardWidth/boardHeight are already display-swapped by the parent,
+  // so we just need to swap the constraint's row↔column interpretation.
   const getHighlightedCells = (): Set<number> => {
     if (isCountConstraint(constraint)) {
       const { type, index = 0 } = constraint;
       
       if (type === 'global') {
-        // All cells highlighted
         return new Set(Array.from({ length: totalCells }, (_, i) => i));
       }
       
-      if (type === 'row') {
-        // Highlight entire row (index 0 = top row, etc.)
+      const displayType = flipXY ? (type === 'row' ? 'column' : type === 'column' ? 'row' : type) : type;
+      
+      if (displayType === 'row') {
         const rowStart = index * boardWidth;
         return new Set(Array.from({ length: boardWidth }, (_, i) => rowStart + i));
       }
       
-      if (type === 'column') {
-        // Highlight entire column (index 0 = left column, etc.)
+      if (displayType === 'column') {
         return new Set(Array.from({ length: boardHeight }, (_, i) => index + i * boardWidth));
       }
     }
     
     if (isCellConstraint(constraint)) {
-      // Highlight single cell at (x, y)
-      // Grid layout: row-major, so cell index = y * boardWidth + x
-      const cellIndex = constraint.y * boardWidth + constraint.x;
+      const displayX = flipXY ? constraint.y : constraint.x;
+      const displayY = flipXY ? constraint.x : constraint.y;
+      const cellIndex = displayY * boardWidth + displayX;
       return new Set([cellIndex]);
     }
     

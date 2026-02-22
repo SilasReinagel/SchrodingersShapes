@@ -1,14 +1,14 @@
 import { Difficulty, PuzzleConfig } from "./types";
 
-// Level configurations matching C implementation in algo/src/generator.c
-export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
+// Cat distribution is now handled probabilistically by LEVEL_CONFIGS in PuzzleGenerator.
+// requiredSuperpositions is omitted here — only pass it as an explicit override.
+export const DIFFICULTY_SETTINGS: Record<Difficulty, Omit<Required<PuzzleConfig>, 'requiredSuperpositions'>> = {
   level1: {
     width: 2,
     height: 2,
     difficulty: 'level1',
     minConstraints: 2,
-    maxConstraints: 10,
-    requiredSuperpositions: 0
+    maxConstraints: 4,
   },
   level2: {
     width: 2,
@@ -16,7 +16,6 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     difficulty: 'level2',
     minConstraints: 3,
     maxConstraints: 12,
-    requiredSuperpositions: 0
   },
   level3: {
     width: 3,
@@ -24,7 +23,6 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     difficulty: 'level3',
     minConstraints: 4,
     maxConstraints: 20,
-    requiredSuperpositions: 1
   },
   level4: {
     width: 3,
@@ -32,7 +30,6 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     difficulty: 'level4',
     minConstraints: 5,
     maxConstraints: 25,
-    requiredSuperpositions: 1
   },
   level5: {
     width: 4,
@@ -40,6 +37,5 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Required<PuzzleConfig>> = {
     difficulty: 'level5',
     minConstraints: 6,
     maxConstraints: 30,
-    requiredSuperpositions: 2
   }
 };

@@ -37,13 +37,15 @@ export class PuzzleGenerator {
   // - maxCellIs: Direct "A1 = Square" constraints (lower = harder)
   // - maxCellIsNotCat: "A1 ≠ Cat" constraints (max 1 per puzzle to reduce spam)
   // - minCountConstraints: Row/col/global counts force deduction
+  // Cat distribution: every puzzle gets 1 cat guaranteed. Each additional cat
+  // is rolled with extraCatChance probability (geometric decay — stop on first fail).
   private static readonly LEVEL_CONFIGS = [
-    { width: 0, height: 0, minConstraints: 0, maxConstraints: 0, requiredCats: 0, maxLockedCells: 0, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 0 }, // Placeholder
-    { width: 2, height: 2, minConstraints: 2, maxConstraints: 10, requiredCats: 1, maxLockedCells: 0, maxCellIs: 2, maxCellIsNotCat: 1, minCountConstraints: 1 }, // Level 1: Tutorial
-    { width: 2, height: 3, minConstraints: 3, maxConstraints: 12, requiredCats: 1, maxLockedCells: 0, maxCellIs: 1, maxCellIsNotCat: 1, minCountConstraints: 2 }, // Level 2: Easy
-    { width: 3, height: 3, minConstraints: 4, maxConstraints: 20, requiredCats: 1, maxLockedCells: 1, maxCellIs: 0, maxCellIsNotCat: 1, minCountConstraints: 3 }, // Level 3: Medium
-    { width: 3, height: 4, minConstraints: 5, maxConstraints: 25, requiredCats: 1, maxLockedCells: 2, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 4 }, // Level 4: Hard
-    { width: 4, height: 4, minConstraints: 6, maxConstraints: 30, requiredCats: 2, maxLockedCells: 3, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 5 }, // Level 5: Expert
+    { width: 0, height: 0, minConstraints: 0, maxConstraints: 0, minCats: 0, maxCats: 0, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 0 }, // Placeholder
+    { width: 2, height: 2, minConstraints: 2, maxConstraints: 4, minCats: 1, maxCats: 1, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 2, maxCellIsNotCat: 1, minCountConstraints: 1 }, // Level 1: Tutorial (2x2 only has room for 1 cat + 3 shapes)
+    { width: 2, height: 3, minConstraints: 3, maxConstraints: 12, minCats: 1, maxCats: 2, extraCatChance: 0.15, maxLockedCells: 0, maxCellIs: 1, maxCellIsNotCat: 1, minCountConstraints: 2 }, // Level 2: Easy
+    { width: 3, height: 3, minConstraints: 4, maxConstraints: 20, minCats: 1, maxCats: 2, extraCatChance: 0.25, maxLockedCells: 1, maxCellIs: 0, maxCellIsNotCat: 1, minCountConstraints: 3 }, // Level 3: Medium
+    { width: 3, height: 4, minConstraints: 5, maxConstraints: 25, minCats: 1, maxCats: 3, extraCatChance: 0.30, maxLockedCells: 2, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 4 }, // Level 4: Hard
+    { width: 4, height: 4, minConstraints: 6, maxConstraints: 30, minCats: 1, maxCats: 4, extraCatChance: 0.40, maxLockedCells: 3, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 5 }, // Level 5: Expert
   ];
   
   public static generate(config: Partial<PuzzleConfig> = {}, seed?: number | string): PuzzleDefinition {
@@ -57,15 +59,21 @@ export class PuzzleGenerator {
     const levelNum = this.difficultyToLevel(fullConfig.difficulty);
     const levelConfig = this.LEVEL_CONFIGS[levelNum];
     
-    // Override with provided config values
+    const width = fullConfig.width || levelConfig.width;
+    const height = fullConfig.height || levelConfig.height;
+
+    // Roll for cat count: guaranteed minimum, then geometric decay for extras.
+    // Only use explicit override from the caller, not from DifficultySettings.
+    const catCount = config.requiredSuperpositions
+      ?? this.rollCatCount(rng, levelConfig, width * height);
+
     const genConfig = {
-      width: fullConfig.width || levelConfig.width,
-      height: fullConfig.height || levelConfig.height,
+      width,
+      height,
       minConstraints: fullConfig.minConstraints ?? levelConfig.minConstraints,
       maxConstraints: fullConfig.maxConstraints ?? levelConfig.maxConstraints,
-      requiredCats: fullConfig.requiredSuperpositions ?? levelConfig.requiredCats,
+      requiredCats: catCount,
       maxLockedCells: levelConfig.maxLockedCells,
-      // Constraint quotas for difficulty tuning
       maxCellIs: levelConfig.maxCellIs,
       maxCellIsNotCat: levelConfig.maxCellIsNotCat,
       minCountConstraints: levelConfig.minCountConstraints,
@@ -80,14 +88,22 @@ export class PuzzleGenerator {
     // Initialize puzzle board with all cats
     const initialBoard = this.initializeGrid(genConfig.width, genConfig.height);
     
-    // Select constraints for unique solution (without solver checking since we removed JS solvers)
+    // Select constraints, optimize, and backfill if optimization pruned too many
     const rawConstraints = this.selectConstraints(facts, genConfig, rng);
     
     // Add locked cells (pre-revealed from solution)
     this.addLockedCells(solutionBoard, initialBoard, genConfig, rng);
     
     // Optimize constraints for display (remove redundant, consolidate, shuffle)
-    const constraints = this.optimizeConstraints(rawConstraints, initialBoard, rngSeed);
+    const preOptCount = rawConstraints.length;
+    let constraints = this.optimizeConstraints(rawConstraints, initialBoard, rngSeed);
+
+    // Backfill if optimization pruned constraints — try to recover to pre-optimization count
+    if (constraints.length < preOptCount) {
+      constraints = this.backfillConstraints(
+        constraints, facts, { ...genConfig, maxConstraints: preOptCount }, initialBoard, rng, rngSeed
+      );
+    }
     
     return {
       initialBoard,
@@ -97,7 +113,7 @@ export class PuzzleGenerator {
 
   /**
    * Generates a valid solution board with the required number of cats
-   * and random shapes for remaining cells
+   * and at least one of every concrete shape for variety.
    */
   private static generateSolutionBoard(
     config: { width: number; height: number; requiredCats: number },
@@ -105,38 +121,59 @@ export class PuzzleGenerator {
   ): GameBoard {
     const { width, height, requiredCats } = config;
     const totalCells = width * height;
+    const nonCatCells = totalCells - requiredCats;
     
-    // Initialize board with random concrete shapes
-    const board: GameBoard = Array(height).fill(null).map(() =>
-      Array(width).fill(null).map(() => ({
-        shape: this.SHAPES[rng.nextInt(this.SHAPES.length)],
-        locked: false
-      }))
-    );
-    
-    // Place required cats randomly
-    if (requiredCats > 0) {
-      // Create array of cell indices and shuffle
-      const indices: number[] = [];
-      for (let i = 0; i < totalCells; i++) {
-        indices.push(i);
+    // Build a flat array of shapes for non-cat cells:
+    // guarantee one of each concrete shape, fill the rest randomly
+    const shapes: ShapeId[] = [];
+    if (nonCatCells >= this.SHAPES.length) {
+      for (const s of this.SHAPES) shapes.push(s);
+      for (let i = this.SHAPES.length; i < nonCatCells; i++) {
+        shapes.push(this.SHAPES[rng.nextInt(this.SHAPES.length)]);
       }
-      this.shuffleArray(indices, rng);
-      
-      // Place cats at first N shuffled positions
-      for (let i = 0; i < requiredCats && i < totalCells; i++) {
-        const idx = indices[i];
-        const y = Math.floor(idx / width);
-        const x = idx % width;
-        board[y][x].shape = CatShape;
+    } else {
+      for (let i = 0; i < nonCatCells; i++) {
+        shapes.push(this.SHAPES[rng.nextInt(this.SHAPES.length)]);
       }
     }
-    
+    this.shuffleArray(shapes, rng);
+
+    // Create shuffled cell indices and assign: cats first, then concrete shapes
+    const indices: number[] = [];
+    for (let i = 0; i < totalCells; i++) indices.push(i);
+    this.shuffleArray(indices, rng);
+
+    const board: GameBoard = Array(height).fill(null).map(() =>
+      Array(width).fill(null).map(() => ({ shape: 0 as ShapeId, locked: false }))
+    );
+
+    let shapeIdx = 0;
+    for (let i = 0; i < totalCells; i++) {
+      const idx = indices[i];
+      const y = Math.floor(idx / width);
+      const x = idx % width;
+
+      if (i < requiredCats) {
+        board[y][x].shape = CatShape;
+      } else {
+        board[y][x].shape = shapes[shapeIdx++];
+      }
+    }
+
     return board;
   }
 
   /**
-   * Extracts all facts from a solution board
+   * Extracts facts from a solution board using an implication hierarchy.
+   * 
+   * Facts are built in layers — each layer only includes facts not already
+   * implied by a higher layer:
+   *   Layer 1: Global counts (always included)
+   *   Layer 2: Row/column counts (only if not implied by globals)
+   *   Layer 3: Cell facts (only if not implied by row/col or globals)
+   * 
+   * This ensures the selection pool contains no redundant information,
+   * so every selected constraint carries genuine deductive value.
    */
   private static extractFacts(
     board: GameBoard,
@@ -144,70 +181,90 @@ export class PuzzleGenerator {
   ): Fact[] {
     const facts: Fact[] = [];
     const { width, height } = config;
-    
-    // Global count facts for each shape
+    const totalCells = width * height;
+
+    // Layer 1: Global counts — these are the broadest facts, always included.
+    // IMPORTANT: "exactly 0 of concrete shape" is invalid in any scope that
+    // contains cats, because the constraint checker treats cats as matching
+    // every concrete shape (quantum superposition). We must suppress these.
+    const globalCounts = new Map<ShapeId, number>();
+    const globalCatCount = this.countShapeInBoard(board, CatShape);
     for (const shape of this.ALL_SHAPES) {
       const count = this.countShapeInBoard(board, shape);
-      facts.push({
-        type: 'global_count',
-        shape,
-        count
-      });
+      globalCounts.set(shape, count);
+
+      if (shape !== CatShape && count === 0 && globalCatCount > 0) continue;
+
+      facts.push({ type: 'global_count', shape, count });
     }
-    
-    // Row count facts
+
+    // Layer 2: Row/column counts — only if not fully determined by a global fact
+    // A global count of 0 or totalCells makes every row/col count for that shape redundant
+    const rowCounts = new Map<string, number>();
     for (let y = 0; y < height; y++) {
+      const rowCatCount = this.countShapeInRow(board, y, CatShape);
       for (const shape of this.ALL_SHAPES) {
         const count = this.countShapeInRow(board, y, shape);
-        facts.push({
-          type: 'row_count',
-          shape,
-          count,
-          index: y
-        });
+        rowCounts.set(`${y}-${shape}`, count);
+
+        const globalCount = globalCounts.get(shape)!;
+        if (globalCount === 0 || globalCount === totalCells) continue;
+        if (shape !== CatShape && count === 0 && rowCatCount > 0) continue;
+
+        facts.push({ type: 'row_count', shape, count, index: y });
       }
     }
-    
-    // Column count facts
+
+    const colCounts = new Map<string, number>();
     for (let x = 0; x < width; x++) {
+      const colCatCount = this.countShapeInColumn(board, x, CatShape);
       for (const shape of this.ALL_SHAPES) {
         const count = this.countShapeInColumn(board, x, shape);
-        facts.push({
-          type: 'col_count',
-          shape,
-          count,
-          index: x
-        });
+        colCounts.set(`${x}-${shape}`, count);
+
+        const globalCount = globalCounts.get(shape)!;
+        if (globalCount === 0 || globalCount === totalCells) continue;
+        if (shape !== CatShape && count === 0 && colCatCount > 0) continue;
+
+        facts.push({ type: 'col_count', shape, count, index: x });
       }
     }
-    
-    // Cell facts (both is and is_not)
+
+    // Layer 3: Cell facts — only if not implied by any higher-level constraint
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const cellShape = board[y][x].shape;
-        
-        // "Cell is X" fact
-        facts.push({
-          type: 'cell_is',
-          shape: cellShape,
-          x,
-          y
-        });
-        
-        // "Cell is not X" facts for other shapes
-        for (const shape of this.ALL_SHAPES) {
-          if (shape !== cellShape) {
-            facts.push({
-              type: 'cell_is_not',
-              shape,
-              x,
-              y
-            });
+
+        // "Cell is X" — skip if the entire row, column, or board is shape X
+        const isImplied =
+          rowCounts.get(`${y}-${cellShape}`) === width ||
+          colCounts.get(`${x}-${cellShape}`) === height ||
+          globalCounts.get(cellShape) === totalCells;
+
+        if (!isImplied) {
+          facts.push({ type: 'cell_is', shape: cellShape, x, y });
+        }
+
+        // "Cell is not X" — skip if row, column, or board already has 0 of shape X.
+        // Cat cells are in superposition (they ARE every shape), so "is not X"
+        // can never be satisfied for a cat cell — skip entirely.
+        if (cellShape !== CatShape) {
+          for (const shape of this.ALL_SHAPES) {
+            if (shape === cellShape) continue;
+
+            const isNotImplied =
+              rowCounts.get(`${y}-${shape}`) === 0 ||
+              colCounts.get(`${x}-${shape}`) === 0 ||
+              globalCounts.get(shape) === 0;
+
+            if (!isNotImplied) {
+              facts.push({ type: 'cell_is_not', shape, x, y });
+            }
           }
         }
       }
     }
-    
+
     return facts;
   }
 
@@ -349,17 +406,31 @@ export class PuzzleGenerator {
     
     // Reset quota tracking for this puzzle
     this.quotas = { cellIsCount: 0, cellIsNotCatCount: 0, countConstraintCount: 0 };
+
+    // The global cat count is mandatory — cats are the core mechanic.
+    // Pull it from the pool and add it before competitive selection.
+    const catFactIdx = facts.findIndex(f => f.type === 'global_count' && f.shape === CatShape);
+    if (catFactIdx !== -1) {
+      const catFact = facts[catFactIdx];
+      const catConstraint = this.factToConstraint(catFact, config.width);
+      if (catConstraint) {
+        constraints.push(catConstraint);
+        this.updateQuotasForConstraint(catConstraint);
+      }
+    }
     
-    // Score and sort facts with quota awareness
-    const scoredFacts = facts.map(fact => ({
-      fact,
-      score: this.scoreFact(fact, config) + rng.nextInt(40) // Add random factor (less than C version to not overcome -1000)
-    }));
+    // Score and sort remaining facts with quota awareness
+    const scoredFacts = facts
+      .filter(f => !(f.type === 'global_count' && f.shape === CatShape))
+      .map(fact => ({
+        fact,
+        score: this.scoreFact(fact, config) + rng.nextInt(40)
+      }));
     
     // Sort by score (descending)
     scoredFacts.sort((a, b) => b.score - a.score);
     
-    // Try adding constraints until we have enough
+    // Fill remaining slots competitively
     for (const { fact, score } of scoredFacts) {
       if (constraints.length >= config.maxConstraints) break;
       
@@ -384,6 +455,40 @@ export class PuzzleGenerator {
     }
     
     return constraints;
+  }
+
+  /**
+   * Backfill constraints from the fact pool after optimization pruned too many.
+   * Picks the highest-scoring unused, non-redundant facts and re-optimizes.
+   */
+  private static backfillConstraints(
+    optimized: ConstraintDefinition[],
+    facts: Fact[],
+    config: { minConstraints: number; maxConstraints: number; width: number; height: number; maxCellIs: number; maxCellIsNotCat: number },
+    board: GameBoard,
+    rng: SeededRNG,
+    seed: number | string
+  ): ConstraintDefinition[] {
+    const combined = [...optimized];
+
+    const candidates = facts
+      .map(fact => ({ fact, score: this.scoreFact(fact, config) + rng.nextInt(40) }))
+      .filter(({ score }) => score >= 0)
+      .sort((a, b) => b.score - a.score);
+
+    for (const { fact } of candidates) {
+      if (combined.length >= config.maxConstraints) break;
+
+      const constraint = this.factToConstraint(fact, config.width);
+      if (!constraint) continue;
+
+      if (this.isRedundantOrConflicting(constraint, combined)) continue;
+      if (this.isConstraintRedundant(constraint, combined, board)) continue;
+
+      combined.push(constraint);
+    }
+
+    return this.optimizeConstraints(combined, board, seed);
   }
 
   /**
@@ -560,6 +665,28 @@ export class PuzzleGenerator {
   }
 
   /**
+   * Roll for cat count using geometric decay.
+   * Always at least minCats. Each extra cat beyond that succeeds with
+   * extraCatChance probability; stop on first failure.
+   * Hard-capped so at least SHAPES.length cells remain for concrete shapes.
+   */
+  private static rollCatCount(
+    rng: SeededRNG,
+    levelConfig: { minCats: number; maxCats: number; extraCatChance: number },
+    totalCells: number
+  ): number {
+    const { minCats, maxCats, extraCatChance } = levelConfig;
+    const absoluteMax = Math.min(maxCats, totalCells - this.SHAPES.length);
+    let cats = minCats;
+
+    while (cats < absoluteMax && rng.random() < extraCatChance) {
+      cats++;
+    }
+
+    return cats;
+  }
+
+  /**
    * Creates an initial board with all cells in cat (superposition) state
    */
   private static initializeGrid(width: number, height: number): GameBoard {
@@ -591,7 +718,7 @@ export class PuzzleGenerator {
     return match ? parseInt(match[1], 10) : 1;
   }
 
-  private static getFullConfig(partialConfig: Partial<PuzzleConfig>): Required<PuzzleConfig> {
+  private static getFullConfig(partialConfig: Partial<PuzzleConfig>): Required<Omit<PuzzleConfig, 'requiredSuperpositions'>> {
     const difficulty = partialConfig.difficulty;
     if (!difficulty) {
       throw new Error('Difficulty is required');
@@ -648,6 +775,12 @@ export class PuzzleGenerator {
       }
     }
 
+    // Prune row/col constraints that are subsumed by global constraints
+    this.pruneSubsumedByGlobal(kept, width, height);
+
+    // Prune global constraints that are implied by a complete set of row or column constraints
+    this.pruneGlobalSubsumedByRowCol(kept, width, height);
+
     // Try to consolidate cell constraints into row/column counts
     let display = [...kept];
     let didConsolidate = true;
@@ -657,15 +790,99 @@ export class PuzzleGenerator {
       didConsolidate = result.didConsolidate;
     }
 
-    // Shuffle all constraints except the first one (global cat count)
+    // Shuffle — pin global cat count first if it survived optimization
     if (display.length > 1 && seed !== undefined) {
+      const globalCatIdx = display.findIndex(
+        c => isCountConstraint(c) && c.type === 'global' && c.rule.shape === CatShape
+      );
       const rng = new SeededRNG(seed);
-      const toShuffle = display.slice(1);
-      this.shuffleConstraints(toShuffle, rng);
-      display = [display[0], ...toShuffle];
+
+      if (globalCatIdx >= 0) {
+        const [globalCat] = display.splice(globalCatIdx, 1);
+        this.shuffleConstraints(display, rng);
+        display.unshift(globalCat);
+      } else {
+        this.shuffleConstraints(display, rng);
+      }
     }
 
     return display;
+  }
+
+  /**
+   * Remove row/column constraints that are subsumed by a global constraint.
+   * e.g. if global says "exactly 0 circles", row "exactly 0 circles" is redundant.
+   * Mutates the array in place.
+   */
+  private static pruneSubsumedByGlobal(
+    constraints: ConstraintDefinition[],
+    width: number,
+    height: number
+  ): void {
+    const totalCells = width * height;
+
+    const globals = constraints.filter(
+      c => isCountConstraint(c) && c.type === 'global'
+    ) as CountConstraint[];
+
+    for (const g of globals) {
+      const { shape, count, operator } = g.rule;
+      if (operator !== 'exactly') continue;
+
+      const subsumesBoundary = count === 0 || count === totalCells;
+      if (!subsumesBoundary) continue;
+
+      for (let i = constraints.length - 1; i >= 0; i--) {
+        const c = constraints[i];
+        if (!isCountConstraint(c)) continue;
+        if (c.type !== 'row' && c.type !== 'column') continue;
+        if (c.rule.shape !== shape || c.rule.operator !== 'exactly') continue;
+
+        const expectedDimCount = count === 0 ? 0 : (c.type === 'row' ? width : height);
+        if (c.rule.count === expectedDimCount) {
+          constraints.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  /**
+   * Remove a global constraint if ALL rows (or ALL columns) have "exactly N"
+   * constraints for the same shape that sum to the global count.
+   * e.g. "col 0: 1 cat" + "col 1: 0 cats" implies "global: 1 cat".
+   * Mutates the array in place.
+   */
+  private static pruneGlobalSubsumedByRowCol(
+    constraints: ConstraintDefinition[],
+    width: number,
+    height: number
+  ): void {
+    const globals = constraints.filter(
+      c => isCountConstraint(c) && c.type === 'global' && c.rule.operator === 'exactly'
+    ) as CountConstraint[];
+
+    for (const g of globals) {
+      const { shape, count: globalCount } = g.rule;
+
+      const rowConstraints = constraints.filter(
+        c => isCountConstraint(c) && c.type === 'row' && c.rule.shape === shape && c.rule.operator === 'exactly'
+      ) as CountConstraint[];
+
+      const colConstraints = constraints.filter(
+        c => isCountConstraint(c) && c.type === 'column' && c.rule.shape === shape && c.rule.operator === 'exactly'
+      ) as CountConstraint[];
+
+      const allRowsCovered = rowConstraints.length === height
+        && rowConstraints.reduce((sum, c) => sum + c.rule.count, 0) === globalCount;
+
+      const allColsCovered = colConstraints.length === width
+        && colConstraints.reduce((sum, c) => sum + c.rule.count, 0) === globalCount;
+
+      if (allRowsCovered || allColsCovered) {
+        const idx = constraints.indexOf(g);
+        if (idx >= 0) constraints.splice(idx, 1);
+      }
+    }
   }
 
   /**

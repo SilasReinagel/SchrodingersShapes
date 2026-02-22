@@ -84,14 +84,23 @@ const checkCountConstraintState = (
   constraint: CountConstraint
 ): ConstraintState => {
   const { rule } = constraint;
+  
+  // For "none" and "at_most" operators, shape must be defined
+  if ((rule.operator === 'none' || rule.operator === 'at_most') && rule.shape === undefined) {
+    console.warn(`Constraint with operator "${rule.operator}" must have a shape defined`);
+    return 'in_progress';
+  }
+  
   const cells = getCellsInScope(grid, constraint);
   const { matching, cats, committed } = countShapes(cells, rule.shape, 'match');
   
   switch (rule.operator) {
     case 'exactly': {
-      // For "exactly N" constraints, we check committed shapes only
-      // Cat cells are in superposition - they don't count toward exact counts
-      // This allows puzzles with Cat requirements to be properly validated
+      // "Exactly 0" is semantically "none" — cats in superposition ARE every shape
+      if (rule.count === 0) {
+        if (matching > 0) return 'violated';
+        return 'satisfied';
+      }
       
       // Satisfied: have exactly the right number of committed shapes
       if (committed === rule.count) {
@@ -119,24 +128,21 @@ const checkCountConstraintState = (
     }
     
     case 'at_most': {
-      // Violated: already have too many committed
-      if (committed > rule.count) {
+      // Violated: have too many matching shapes
+      // Cats count as matching because they're in superposition (they ARE every shape)
+      if (matching > rule.count) {
         return 'violated';
       }
-      // Satisfied: committed count is within limit
-      // (cats don't contribute to at_most since they might not become target)
-      if (committed <= rule.count) {
-        return 'satisfied';
-      }
-      return 'in_progress';
+      return 'satisfied';
     }
     
     case 'none': {
-      // Violated: have any committed shapes of this type
-      if (committed > 0) {
+      // Violated: have any matching shapes (including cats)
+      // Cats count as matching because they're in superposition (they ARE every shape)
+      // This is the critical fix: cats ARE triangles (and all shapes), so "no triangles" is violated if cats exist
+      if (matching > 0) {
         return 'violated';
       }
-      // Satisfied: no committed shapes (cats are okay - they might not become target)
       return 'satisfied';
     }
     

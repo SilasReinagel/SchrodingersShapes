@@ -28,7 +28,14 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-image: 
+  background-image:
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(14, 51, 107, 0.82) 0%,
+      rgba(75, 50, 150, 0.82) 40%,
+      rgba(45, 25, 95, 0.82) 70%,
+      transparent 100%
+    ),
     linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
     url('/art/lab_bg_01_dk.jpg');
   background-size: cover;

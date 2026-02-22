@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ConstraintDefinition, 
@@ -25,6 +25,7 @@ interface ConstraintRowProps {
   boardWidth: number;
   boardHeight: number;
   grid: GameBoard;
+  flipXY?: boolean;
 }
 
 /**
@@ -96,9 +97,25 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
   index,
   boardWidth,
   boardHeight,
-  grid
+  grid,
+  flipXY = false
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    if (rowRef.current) {
+      setAnchorRect(rowRef.current.getBoundingClientRect());
+    }
+  }, []);
+  
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    setAnchorRect(null);
+  }, []);
+  
   const operator = getOperator(constraint);
   const shapeId = getShape(constraint);
   const countDisplay = getCountDisplay(constraint);
@@ -113,6 +130,7 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
 
   return (
     <motion.div
+      ref={rowRef}
       initial={{ x: 20, opacity: 0 }}
       animate={{ 
         x: 0, 
@@ -133,8 +151,8 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
         transition-colors duration-200
         ${statusBgClass}
       `}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <AnimatePresence>
         {isHovered && (
@@ -144,11 +162,15 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
             status={status}
             boardWidth={boardWidth}
             boardHeight={boardHeight}
+            anchorRect={anchorRect}
+            flipXY={flipXY}
           />
         )}
       </AnimatePresence>
       {/* Scope indicator (grid matching board size) */}
-      <ScopeIcon constraint={constraint} boardWidth={boardWidth} boardHeight={boardHeight} size="md" />
+      <div className="flex-shrink-0">
+        <ScopeIcon constraint={constraint} boardWidth={boardWidth} boardHeight={boardHeight} size="md" flipXY={flipXY} />
+      </div>
       
       {/* Operator and count */}
       <div className="flex items-center gap-2 text-2xl md:text-3xl font-nunito font-bold flex-1" style={{ color: '#88c9f0' }}>
@@ -183,4 +205,3 @@ export const ConstraintRow: React.FC<ConstraintRowProps> = ({
     </motion.div>
   );
 };
-

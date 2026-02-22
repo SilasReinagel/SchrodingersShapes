@@ -58,8 +58,8 @@ static const struct {
     // Placeholder for index 0
     {0, 0, 0, 0, 0, 0, 0, 0, 0},
     // Level 1: Tutorial - allow some hand-holding
-    // 2x2 (4 cells), 1 cat, up to 2 direct assignments, 1 "≠ cat", at least 1 count
-    {2, 2, 2, 10, 1, 0, 2, 1, 1},
+    // 2x2 (4 cells), 1 cat, up to 2 direct assignments, 1 "≠ cat", at least 1 count, max 4 constraints
+    {2, 2, 2, 4, 1, 0, 2, 1, 1},
     // Level 2: Easy - reduce hand-holding
     // 2x3 (6 cells), 1 cat, up to 1 direct assignment, 1 "≠ cat", at least 2 counts
     {2, 3, 3, 12, 1, 0, 1, 1, 2},

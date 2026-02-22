@@ -4,6 +4,7 @@ import { GameBoard, ShapeId, CatShape } from '../../game/types';
 import { Shape } from '../shapes/Shape';
 import { ShapePicker, PICKER_WIDTH, PICKER_HEIGHT } from '../shapes/ShapePicker';
 import { createGridGlowFilter } from '../../constants/glowColors';
+import { computeBoardFrameHeight } from './boardSizing';
 
 interface GridProps {
   grid: GameBoard;
@@ -35,8 +36,6 @@ const BORDER_SLICE = 60;
 const CONTENT_OFFSET_Y = 5;
 
 // Reference dimensions for consistent board sizing across all difficulties
-// All boards will be scaled to match the height of a 4-row board (the largest)
-const REFERENCE_ROWS = 4;
 const REFERENCE_CELL_SIZE = 100; // Base cell size before viewport adjustments
 const REFERENCE_GAP_RATIO = 0.1; // Gap as percentage of cell size
 
@@ -127,20 +126,7 @@ export const Grid: React.FC<GridProps> = ({ grid, onCellClick, onShapeSelect, fl
     const viewportWidth = viewportSize.width;
     const viewportHeight = viewportSize.height;
     
-    // Calculate target board height based on viewport
-    // This is the height we want ALL boards to match (based on a 4-row reference)
-    let targetCellSize: number;
-    if (viewportWidth < 640) { // mobile
-      targetCellSize = Math.min(80, (viewportWidth - 80) / REFERENCE_ROWS);
-    } else if (viewportWidth < 1024) { // tablet
-      targetCellSize = Math.min(100, (viewportWidth - 200) / REFERENCE_ROWS);
-    } else { // desktop
-      targetCellSize = Math.min(120, (viewportHeight - 200) / REFERENCE_ROWS);
-    }
-    targetCellSize = Math.max(60, targetCellSize);
-    
-    const targetGap = Math.max(8, targetCellSize * REFERENCE_GAP_RATIO);
-    const targetBoardHeight = REFERENCE_ROWS * targetCellSize + (REFERENCE_ROWS - 1) * targetGap + BOARD_PADDING_Y * 2;
+    const targetBoardHeight = computeBoardFrameHeight(viewportWidth, viewportHeight);
     
     // Use a consistent cell size for the actual grid (makes cells look uniform)
     const actualCellSize = REFERENCE_CELL_SIZE;

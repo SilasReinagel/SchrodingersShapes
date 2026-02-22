@@ -39,13 +39,13 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
 
   return (
     <motion.div
-      className="w-full h-full flex flex-col items-center justify-center"
+      className="w-full h-full min-h-0 flex flex-col items-center"
       initial={{ x: 20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
       {/* Outer wrapper with padding for glow effect visibility */}
-      <div className="p-8">
+      <div className="px-0 py-8 flex-1 min-h-0 flex flex-col justify-center w-full">
         <div 
           className="p-4 md:p-5 space-y-2 overflow-y-auto overflow-x-hidden"
           style={{
@@ -55,7 +55,6 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
             borderImageRepeat: 'stretch',
             borderStyle: 'solid',
             borderWidth: '55px',
-            maxHeight: 'calc(100vh - 240px)',
             // Use filter drop-shadow for consistent glow that works with border-image
             filter: createGlowFilter(),
           }}
@@ -74,6 +73,7 @@ export const ConstraintsPanel: React.FC<ConstraintsPanelProps> = ({
                 boardWidth={displayWidth}
                 boardHeight={displayHeight}
                 grid={grid}
+                flipXY={flipXY}
               />
             ))}
           </div>

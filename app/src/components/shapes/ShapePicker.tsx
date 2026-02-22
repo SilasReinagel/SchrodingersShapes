@@ -271,18 +271,11 @@ export const ShapePicker: React.FC<ShapePickerProps> = ({
                   }}
                 />
                 
-                {/* Shape with layoutId for fly animation */}
-                <motion.div
-                  layoutId={`shape-${targetCellId}-${shape}`}
+                <div
                   className="relative z-10"
                   style={{
                     width: `${SHAPE_SIZE}px`,
                     height: `${SHAPE_SIZE}px`,
-                  }}
-                  transition={{
-                    type: "spring",
-                    damping: 25,
-                    stiffness: 300,
                   }}
                 >
                   <img 
@@ -293,7 +286,7 @@ export const ShapePicker: React.FC<ShapePickerProps> = ({
                       filter: `drop-shadow(0 0 8px ${NEON_CYAN}) drop-shadow(0 0 16px rgba(0, 229, 255, 0.5))`,
                     }}
                   />
-                </motion.div>
+                </div>
               </motion.button>
             ))}
           </div>

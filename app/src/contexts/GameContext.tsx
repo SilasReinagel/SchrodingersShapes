@@ -14,10 +14,13 @@ import {
 const STORAGE_KEY_LEVEL = 'schrodingers_shapes_level';
 const STORAGE_KEY_COMPLETED = 'schrodingers_shapes_completed';
 
+const VICTORY_DELAY_MS = 3000;
+
 interface GameContextType {
   // Game state
   puzzle: CurrentPuzzle | null;
   isPlaying: boolean;
+  puzzleSolved: boolean; // true when puzzle just solved, before modal (confetti + highlight phase)
   showVictory: boolean;
   difficulty: Difficulty;
   seed: number;
@@ -34,7 +37,6 @@ interface GameContextType {
   handleResetLevel: () => void;
   handleNextLevel: () => void;
   setDifficulty: (difficulty: Difficulty) => void;
-  handleCloseVictory: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -110,6 +112,7 @@ const loadCompletedLevels = (): Set<number> => {
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const puzzleRef = useRef<CurrentPuzzle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [puzzleSolved, setPuzzleSolved] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [levelNumber, setLevelNumber] = useState<number>(() => loadSavedLevel());
   const [isLoaded, setIsLoaded] = useState(false);
@@ -131,13 +134,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const puzzle = puzzleRef.current;
     if (puzzle?.isPuzzleSolved()) {
       setIsPlaying(false);
-      setShowVictory(true);
+      setPuzzleSolved(true);
       // Mark level as completed and save next level
       markLevelCompleted(levelNumber);
       const nextLevel = getNextLevelNumber(levelNumber);
       saveCurrentLevel(nextLevel);
     }
   }, [levelNumber]);
+
+  // Delay victory modal by 3 seconds after puzzle solved (confetti + board highlight phase)
+  useEffect(() => {
+    if (!puzzleSolved) return;
+    const t = setTimeout(() => setShowVictory(true), VICTORY_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [puzzleSolved]);
 
   const generatePuzzleForLevel = useCallback((newLevelNumber: number) => {
     const { difficulty: newDifficulty, seed: newSeed } = decodeLevelNumber(newLevelNumber);
@@ -146,6 +156,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setLevelNumber(newLevelNumber);
     setIsPlaying(false);
+    setPuzzleSolved(false);
     setShowVictory(false);
     setIsLoaded(true);
     setMoveCount(0);
@@ -154,33 +165,48 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     forceUpdate({});
   }, []);
 
-  // Timer effect: update timer state when playing
+  // Start timer on first user interaction (hover or click) after level loads
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setTimer((currentTime) => {
-          const [minutes, seconds] = currentTime.split(':').map(Number);
-          let newSeconds = seconds + 1;
-          let newMinutes = minutes;
-          
-          if (newSeconds >= 60) {
-            newSeconds = 0;
-            newMinutes += 1;
-          }
-          
-          return `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
-        });
-      }, 1000);
-    }
-    
+    if (isPlaying || !isLoaded || puzzleSolved) return;
+
+    const start = () => setIsPlaying(true);
+    window.addEventListener('mousemove', start, { once: true });
+    window.addEventListener('pointerdown', start, { once: true });
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      window.removeEventListener('mousemove', start);
+      window.removeEventListener('pointerdown', start);
     };
-  }, [isPlaying]);
+  }, [isPlaying, isLoaded, puzzleSolved]);
+
+  // Pause timer when the tab is not visible (alt-tab on single monitor)
+  const [tabVisible, setTabVisible] = useState(!document.hidden);
+  useEffect(() => {
+    const onVisChange = () => setTabVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVisChange);
+    return () => document.removeEventListener('visibilitychange', onVisChange);
+  }, []);
+
+  // Timer effect: only tick when playing AND tab is visible
+  useEffect(() => {
+    if (!isPlaying || !tabVisible) return;
+
+    const interval = setInterval(() => {
+      setTimer((currentTime) => {
+        const [minutes, seconds] = currentTime.split(':').map(Number);
+        let newSeconds = seconds + 1;
+        let newMinutes = minutes;
+        
+        if (newSeconds >= 60) {
+          newSeconds = 0;
+          newMinutes += 1;
+        }
+        
+        return `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, tabVisible]);
 
   // Initialize puzzle on mount
   useEffect(() => {
@@ -190,7 +216,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleCellClick = useCallback((row: number, col: number): void => {
     const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory) return;
+    if (!puzzle || puzzleSolved || showVictory) return;
     
     if (!isPlaying) {
       setIsPlaying(true);
@@ -212,11 +238,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       checkVictory();
       forceUpdate({});
     }
-  }, [showVictory, isPlaying, updateMoveCount, checkVictory]);
+  }, [puzzleSolved, showVictory, isPlaying, updateMoveCount, checkVictory]);
 
   const handleShapeSelect = useCallback((row: number, col: number, shape: ShapeId) => {
     const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory) return;
+    if (!puzzle || puzzleSolved || showVictory) return;
     
     if (!isPlaying) {
       setIsPlaying(true);
@@ -229,16 +255,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       checkVictory();
       forceUpdate({});
     }
-  }, [showVictory, isPlaying, updateMoveCount, checkVictory]);
+  }, [puzzleSolved, showVictory, isPlaying, updateMoveCount, checkVictory]);
 
   const handleUndo = useCallback(() => {
     const puzzle = puzzleRef.current;
-    if (!puzzle || showVictory || !puzzle.getCanUndo()) return;
+    if (!puzzle || puzzleSolved || showVictory || !puzzle.getCanUndo()) return;
     
     puzzle.undoMove();
     updateMoveCount();
     forceUpdate({});
-  }, [showVictory, updateMoveCount]);
+  }, [puzzleSolved, showVictory, updateMoveCount]);
 
   const handleNextLevel = useCallback(() => {
     const nextLevel = getNextLevelNumber(levelNumber);
@@ -251,14 +277,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     puzzle.resetToInitial();
     setIsPlaying(false);
+    setPuzzleSolved(false);
     setShowVictory(false);
     setMoveCount(0);
     setTimer('00:00');
     forceUpdate({});
-  }, []);
-
-  const handleCloseVictory = useCallback(() => {
-    setShowVictory(false);
   }, []);
 
   const setDifficultyHandler = useCallback((newDifficulty: Difficulty) => {
@@ -286,6 +309,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     puzzle: puzzleRef.current,
     isPlaying,
+    puzzleSolved,
     showVictory,
     difficulty,
     seed,
@@ -300,7 +324,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleResetLevel,
     handleNextLevel,
     setDifficulty: setDifficultyHandler,
-    handleCloseVictory,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

@@ -25,7 +25,7 @@ describe('PuzzleGenerator', () => {
     expect(puzzle.initialBoard.length).toBe(2);
     expect(puzzle.initialBoard[0].length).toBe(2);
     expect(puzzle.constraints.length).toBeGreaterThanOrEqual(2);
-    expect(puzzle.constraints.length).toBeLessThanOrEqual(10);
+    expect(puzzle.constraints.length).toBeLessThanOrEqual(4);
   });
 
   it('should generate a hard puzzle correctly', () => {

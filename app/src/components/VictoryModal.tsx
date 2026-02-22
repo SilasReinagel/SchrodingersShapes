@@ -1,27 +1,20 @@
 import { motion } from 'framer-motion';
 import ReactModal from 'react-modal';
-import Confetti from 'react-confetti';
-import { useWindowSize } from 'react-use';
 
 interface VictoryModalProps {
   isOpen: boolean;
-  onClose: () => void;
   time: string;
   onNextLevel: () => void;
 }
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   isOpen,
-  onClose,
   time,
   onNextLevel,
 }) => {
-  const { width, height } = useWindowSize();
-
   return (
     <ReactModal
       isOpen={isOpen}
-      onRequestClose={onClose}
       className="modal-content"
       overlayClassName="modal-overlay"
       closeTimeoutMS={300}
@@ -68,26 +61,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
-
-        {isOpen && (
-          <Confetti 
-            width={width} 
-            height={height} 
-            recycle={false} 
-            numberOfPieces={200}
-            gravity={0.3}
-            initialVelocityY={-5}
-            colors={['#4FC3F7', '#FFB5BA', '#FFE5B4', '#00D9FF', '#FF00FF']}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none'
-            }}
-          />
-        )}
         
         {/* Title with glow effect */}
         <motion.h2 
@@ -141,8 +114,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </div>
         </motion.div>
 
-        {/* Buttons */}
-        <div className="flex flex-col space-y-3 relative z-10">
+        {/* Button */}
+        <div className="relative z-10">
           <motion.button
             whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(79, 195, 247, 0.6)' }}
             whileTap={{ scale: 0.98 }}
@@ -159,22 +132,6 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             }}
           >
             Next Level
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02, backgroundColor: 'rgba(79, 195, 247, 0.2)' }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onClose}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="w-full py-4 px-6 rounded-xl font-fredoka font-bold text-lg transition-all"
-            style={{
-              background: 'rgba(79, 195, 247, 0.1)',
-              color: '#4FC3F7',
-              border: '1px solid rgba(79, 195, 247, 0.3)',
-            }}
-          >
-            Keep Playing
           </motion.button>
         </div>
       </motion.div>
