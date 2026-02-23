@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { VictoryModal } from './VictoryModal';
 import ReactModal from 'react-modal';
 
-// Set app element for ReactModal
 if (typeof document !== 'undefined') {
   ReactModal.setAppElement('#root');
 }
@@ -28,10 +27,6 @@ const meta = {
       control: 'text',
       description: 'Time taken (format: MM:SS)',
     },
-    onClose: {
-      action: 'closed',
-      description: 'Callback when modal is closed',
-    },
     onNextLevel: {
       action: 'next-level',
       description: 'Callback when next level is requested',
@@ -46,7 +41,6 @@ export const Default: Story = {
   args: {
     isOpen: true,
     time: '02:34',
-    onClose: () => {},
     onNextLevel: () => {},
   },
   render: (args) => {
@@ -57,10 +51,6 @@ export const Default: Story = {
         <VictoryModal
           {...args}
           isOpen={isOpen}
-          onClose={() => {
-            args.onClose();
-            setIsOpen(false);
-          }}
           onNextLevel={() => {
             args.onNextLevel();
             setIsOpen(false);
@@ -83,7 +73,6 @@ export const QuickTime: Story = {
   args: {
     isOpen: true,
     time: '00:45',
-    onClose: () => {},
     onNextLevel: () => {},
   },
   render: (args) => {
@@ -94,10 +83,6 @@ export const QuickTime: Story = {
         <VictoryModal
           {...args}
           isOpen={isOpen}
-          onClose={() => {
-            args.onClose();
-            setIsOpen(false);
-          }}
           onNextLevel={() => {
             args.onNextLevel();
             setIsOpen(false);
@@ -120,7 +105,6 @@ export const LongTime: Story = {
   args: {
     isOpen: true,
     time: '12:45',
-    onClose: () => {},
     onNextLevel: () => {},
   },
   render: (args) => {
@@ -131,10 +115,6 @@ export const LongTime: Story = {
         <VictoryModal
           {...args}
           isOpen={isOpen}
-          onClose={() => {
-            args.onClose();
-            setIsOpen(false);
-          }}
           onNextLevel={() => {
             args.onNextLevel();
             setIsOpen(false);
@@ -152,4 +132,3 @@ export const LongTime: Story = {
     );
   },
 };
-

@@ -81,7 +81,7 @@ const getCountDisplay = (constraint: ConstraintDefinition): string | null => {
 /**
  * Check if shape should show forbidden overlay
  */
-const isForbidden = (constraint: ConstraintDefinition): boolean => {
+const isForbidden = (_constraint: ConstraintDefinition): boolean => {
   // Don't show forbidden overlay when operator displays "≠" symbol
   // The ≠ symbol itself is sufficient to indicate the constraint
   return false;

@@ -66,7 +66,7 @@ const loadSavedLevel = (): number => {
   } catch {
     // localStorage not available
   }
-  return getStartingLevelNumber('level2'); // Default to level2 seed 0
+  return getStartingLevelNumber('level1');
 };
 
 /**

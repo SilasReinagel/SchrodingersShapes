@@ -7,9 +7,11 @@ import { MainMenu } from './pages/MainMenu';
 import { Designer } from './pages/Designer';
 import { HowToPlay } from './pages/HowToPlay';
 import { PerformanceProfiler, useProfilerToggle } from './components/PerformanceProfiler';
+import { usePreloadAssets } from './hooks/usePreloadAssets';
 
 const AppContent: React.FC = () => {
   const profilerEnabled = useProfilerToggle();
+  usePreloadAssets();
 
   return (
     <>

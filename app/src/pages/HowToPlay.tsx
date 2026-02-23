@@ -70,7 +70,7 @@ export const HowToPlay: React.FC = () => {
       content: (
         <div className="flex flex-col items-center gap-6">
           <div className="flex gap-6">
-            {[SquareShape, CircleShape, TriangleShape].map((shape, i) => (
+            {([SquareShape, CircleShape, TriangleShape] as const).map((shape, i) => (
               <motion.div
                 key={shape}
                 className="w-20 h-20"

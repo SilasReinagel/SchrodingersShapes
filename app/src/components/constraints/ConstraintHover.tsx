@@ -61,8 +61,8 @@ const getShapeName = (shapeId: ShapeId): string => {
  */
 const getScopeDescription = (
   constraint: ConstraintDefinition,
-  boardWidth: number,
-  boardHeight: number,
+  _boardWidth: number,
+  _boardHeight: number,
   flipXY: boolean = false
 ): string => {
   if (isCountConstraint(constraint)) {
@@ -143,7 +143,7 @@ const generateExplanation = (
     const shapeName = rule.shape !== undefined ? getShapeName(rule.shape) : 'shapes';
     const operatorDesc = getOperatorDescription(constraint);
     
-    const { matching, cats, committed, total } = countShapesDetailed(cells, rule.shape);
+    const { cats, committed, total } = countShapesDetailed(cells, rule.shape);
     
     // Build description
     let description = '';

@@ -37,8 +37,6 @@ export const PICKER_HEIGHT = BUTTON_SIZE + 2 * PADDING; // ~166
 
 export const ShapePicker: React.FC<ShapePickerProps> = ({ 
   position, 
-  cellRect,
-  targetCellId, 
   onSelect, 
   onClose 
 }) => {

@@ -33,7 +33,7 @@ export const PerformanceProfiler: React.FC<PerformanceProfilerProps> = ({ enable
   const frameCountRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
   const frameTimesRef = useRef<number[]>([]);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const renderCountRef = useRef(0);
   const componentRenderCountsRef = useRef<Map<string, number>>(new Map());
   
@@ -44,7 +44,7 @@ export const PerformanceProfiler: React.FC<PerformanceProfilerProps> = ({ enable
   const observerRef = useRef<PerformanceObserver | null>(null);
   const lastCpuUsageRef = useRef<{ utilization: number; longTasks: number; mainThreadBlocking: number } | undefined>(undefined);
 
-  const measureFrame = useCallback((timestamp: number) => {
+  const measureFrame = useCallback((_timestamp: number) => {
     if (!enabled) return;
 
     const now = performance.now();
