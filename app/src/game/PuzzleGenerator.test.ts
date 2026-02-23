@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PuzzleGenerator } from './PuzzleGenerator';
 import { CatShape, SquareShape, CircleShape, TriangleShape, isCountConstraint, isCellConstraint, ConstraintDefinition, GameBoard, Cell } from './types';
+import { countSolutions } from './PuzzleSolver';
 
 describe('PuzzleGenerator', () => {
   it('should generate a puzzle with default settings', () => {
@@ -24,8 +25,8 @@ describe('PuzzleGenerator', () => {
     
     expect(puzzle.initialBoard.length).toBe(2);
     expect(puzzle.initialBoard[0].length).toBe(2);
-    expect(puzzle.constraints.length).toBeGreaterThanOrEqual(2);
-    expect(puzzle.constraints.length).toBeLessThanOrEqual(4);
+    expect(puzzle.constraints.length).toBeGreaterThanOrEqual(4);
+    expect(puzzle.constraints.length).toBeLessThanOrEqual(6);
   });
 
   it('should generate a hard puzzle correctly', () => {
@@ -132,6 +133,35 @@ describe('PuzzleGenerator', () => {
 // =============================================================================
 // Constraint Optimization Tests
 // =============================================================================
+
+describe('PuzzleGenerator solution uniqueness', () => {
+  it('level 1 puzzles should have at most 3 solutions', () => {
+    for (let i = 0; i < 10; i++) {
+      const puzzle = PuzzleGenerator.generate({ difficulty: 'level1' }, i * 7777);
+      const solutions = countSolutions(puzzle.initialBoard, puzzle.constraints, 4);
+      expect(solutions).toBeGreaterThanOrEqual(1);
+      expect(solutions).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('level 2 puzzles should have at most 4 solutions', () => {
+    for (let i = 0; i < 5; i++) {
+      const puzzle = PuzzleGenerator.generate({ difficulty: 'level2' }, i * 7777);
+      const solutions = countSolutions(puzzle.initialBoard, puzzle.constraints, 5);
+      expect(solutions).toBeGreaterThanOrEqual(1);
+      expect(solutions).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('level 3 puzzles should have at most 6 solutions', () => {
+    for (let i = 0; i < 3; i++) {
+      const puzzle = PuzzleGenerator.generate({ difficulty: 'level3' }, i * 7777);
+      const solutions = countSolutions(puzzle.initialBoard, puzzle.constraints, 7);
+      expect(solutions).toBeGreaterThanOrEqual(1);
+      expect(solutions).toBeLessThanOrEqual(6);
+    }
+  });
+});
 
 describe('PuzzleGenerator.optimizeConstraints', () => {
   // Helper to create a board for testing

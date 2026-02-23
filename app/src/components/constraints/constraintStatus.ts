@@ -102,8 +102,8 @@ const checkCountConstraintState = (
         return 'satisfied';
       }
       
-      // Satisfied: have exactly the right number of committed shapes
-      if (committed === rule.count) {
+      // Satisfied: committed shapes alone match, OR total matching (committed + cats) matches
+      if (committed === rule.count || matching === rule.count) {
         return 'satisfied';
       }
       // Violated: already have too many committed shapes

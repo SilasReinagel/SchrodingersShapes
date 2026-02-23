@@ -1,6 +1,7 @@
 import { DIFFICULTY_SETTINGS } from './DifficultySettings';
 import { ShapeId, GameBoard, ConstraintDefinition, PuzzleConfig, PuzzleDefinition, CatShape, SquareShape, CircleShape, TriangleShape, isCountConstraint, isCellConstraint, CountConstraint, CellConstraint } from './types';
 import { SeededRNG } from './SeededRNG';
+import { countSolutions } from './PuzzleSolver';
 
 /**
  * Represents a fact extracted from a solution board
@@ -40,15 +41,55 @@ export class PuzzleGenerator {
   // Cat distribution: every puzzle gets 1 cat guaranteed. Each additional cat
   // is rolled with extraCatChance probability (geometric decay — stop on first fail).
   private static readonly LEVEL_CONFIGS = [
-    { width: 0, height: 0, minConstraints: 0, maxConstraints: 0, minCats: 0, maxCats: 0, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 0 }, // Placeholder
-    { width: 2, height: 2, minConstraints: 2, maxConstraints: 4, minCats: 1, maxCats: 1, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 2, maxCellIsNotCat: 1, minCountConstraints: 1 }, // Level 1: Tutorial (2x2 only has room for 1 cat + 3 shapes)
-    { width: 2, height: 3, minConstraints: 3, maxConstraints: 12, minCats: 1, maxCats: 2, extraCatChance: 0.15, maxLockedCells: 0, maxCellIs: 1, maxCellIsNotCat: 1, minCountConstraints: 2 }, // Level 2: Easy
-    { width: 3, height: 3, minConstraints: 4, maxConstraints: 20, minCats: 1, maxCats: 2, extraCatChance: 0.25, maxLockedCells: 1, maxCellIs: 0, maxCellIsNotCat: 1, minCountConstraints: 3 }, // Level 3: Medium
-    { width: 3, height: 4, minConstraints: 5, maxConstraints: 25, minCats: 1, maxCats: 3, extraCatChance: 0.30, maxLockedCells: 2, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 4 }, // Level 4: Hard
-    { width: 4, height: 4, minConstraints: 6, maxConstraints: 30, minCats: 1, maxCats: 4, extraCatChance: 0.40, maxLockedCells: 3, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 5 }, // Level 5: Expert
+    { width: 0, height: 0, minConstraints: 0, maxConstraints: 0, minCats: 0, maxCats: 0, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 0, maxSolutions: 1 }, // Placeholder
+    { width: 2, height: 2, minConstraints: 2, maxConstraints: 4, minCats: 1, maxCats: 1, extraCatChance: 0, maxLockedCells: 0, maxCellIs: 2, maxCellIsNotCat: 1, minCountConstraints: 1, maxSolutions: 3 }, // Level 1: Tutorial
+    { width: 2, height: 3, minConstraints: 3, maxConstraints: 12, minCats: 1, maxCats: 2, extraCatChance: 0.15, maxLockedCells: 0, maxCellIs: 1, maxCellIsNotCat: 1, minCountConstraints: 2, maxSolutions: 4 }, // Level 2: Easy
+    { width: 3, height: 3, minConstraints: 4, maxConstraints: 20, minCats: 1, maxCats: 2, extraCatChance: 0.25, maxLockedCells: 1, maxCellIs: 0, maxCellIsNotCat: 1, minCountConstraints: 3, maxSolutions: 6 }, // Level 3: Medium
+    { width: 3, height: 4, minConstraints: 5, maxConstraints: 25, minCats: 1, maxCats: 3, extraCatChance: 0.30, maxLockedCells: 2, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 4, maxSolutions: 8 }, // Level 4: Hard
+    { width: 4, height: 4, minConstraints: 6, maxConstraints: 30, minCats: 1, maxCats: 4, extraCatChance: 0.40, maxLockedCells: 3, maxCellIs: 0, maxCellIsNotCat: 0, minCountConstraints: 5, maxSolutions: 12 }, // Level 5: Expert
   ];
   
+  private static readonly MAX_GENERATION_ATTEMPTS = 50;
+  private static readonly MAX_SOLVABLE_CELLS = 16;
+
   public static generate(config: Partial<PuzzleConfig> = {}, seed?: number | string): PuzzleDefinition {
+    const fullConfig = this.getFullConfig(config);
+    const levelNum = this.difficultyToLevel(fullConfig.difficulty);
+    const levelConfig = this.LEVEL_CONFIGS[levelNum];
+    const maxSolutions = levelConfig.maxSolutions;
+
+    const baseSeed = seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
+    const gridSize = (fullConfig.width || levelConfig.width) * (fullConfig.height || levelConfig.height);
+
+    if (gridSize > this.MAX_SOLVABLE_CELLS) {
+      return this.generateOnce(config, baseSeed);
+    }
+
+    let bestPuzzle: PuzzleDefinition | null = null;
+    let bestSolutionCount = Infinity;
+
+    for (let attempt = 0; attempt < this.MAX_GENERATION_ATTEMPTS; attempt++) {
+      const attemptSeed = typeof baseSeed === 'string'
+        ? `${baseSeed}-${attempt}`
+        : (baseSeed as number) + attempt;
+
+      const puzzle = this.generateOnce(config, attemptSeed);
+      const solutions = countSolutions(puzzle.initialBoard, puzzle.constraints, maxSolutions + 1);
+
+      if (solutions >= 1 && solutions <= maxSolutions) {
+        return puzzle;
+      }
+
+      if (solutions >= 1 && solutions < bestSolutionCount) {
+        bestPuzzle = puzzle;
+        bestSolutionCount = solutions;
+      }
+    }
+
+    return bestPuzzle ?? this.generateOnce(config, baseSeed);
+  }
+
+  private static generateOnce(config: Partial<PuzzleConfig> = {}, seed?: number | string): PuzzleDefinition {
     const fullConfig = this.getFullConfig(config);
     
     // Create seeded RNG - use provided seed or generate random seed
@@ -136,12 +177,12 @@ export class PuzzleGenerator {
         shapes.push(this.SHAPES[rng.nextInt(this.SHAPES.length)]);
       }
     }
-    this.shuffleArray(shapes, rng);
+    const shuffledShapes = this.getShuffledArray(shapes, rng);
 
     // Create shuffled cell indices and assign: cats first, then concrete shapes
     const indices: number[] = [];
     for (let i = 0; i < totalCells; i++) indices.push(i);
-    this.shuffleArray(indices, rng);
+    const shuffledIndices = this.getShuffledArray(indices, rng);
 
     const board: GameBoard = Array(height).fill(null).map(() =>
       Array(width).fill(null).map(() => ({ shape: 0 as ShapeId, locked: false }))
@@ -149,14 +190,14 @@ export class PuzzleGenerator {
 
     let shapeIdx = 0;
     for (let i = 0; i < totalCells; i++) {
-      const idx = indices[i];
+      const idx = shuffledIndices[i];
       const y = Math.floor(idx / width);
       const x = idx % width;
 
       if (i < requiredCats) {
         board[y][x].shape = CatShape;
       } else {
-        board[y][x].shape = shapes[shapeIdx++];
+        board[y][x].shape = shuffledShapes[shapeIdx++];
       }
     }
 
@@ -609,13 +650,13 @@ export class PuzzleGenerator {
       }
     }
     
-    this.shuffleArray(candidates, rng);
+    const shuffledCandidates = this.getShuffledArray(candidates, rng);
     
     // Lock up to maxLockedCells
-    const toLock = Math.min(maxLockedCells, candidates.length);
+    const toLock = Math.min(maxLockedCells, shuffledCandidates.length);
     
     for (let i = 0; i < toLock; i++) {
-      const idx = candidates[i];
+      const idx = shuffledCandidates[i];
       const y = Math.floor(idx / width);
       const x = idx % width;
       initialBoard[y][x].shape = solutionBoard[y][x].shape;
@@ -701,7 +742,7 @@ export class PuzzleGenerator {
   /**
    * Shuffles an array using Fisher-Yates algorithm with seeded RNG
    */
-  private static shuffleArray<T>(array: T[], rng: SeededRNG): T[] {
+  private static getShuffledArray<T>(array: T[], rng: SeededRNG): T[] {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = rng.nextInt(i + 1);

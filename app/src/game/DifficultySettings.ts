@@ -7,8 +7,8 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, Omit<Required<PuzzleConfig>
     width: 2,
     height: 2,
     difficulty: 'level1',
-    minConstraints: 2,
-    maxConstraints: 4,
+    minConstraints: 4,
+    maxConstraints: 6,
   },
   level2: {
     width: 2,

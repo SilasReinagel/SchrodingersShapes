@@ -7,6 +7,7 @@ import {
   encodeLevelNumber, 
   decodeLevelNumber, 
   getNextLevelNumber,
+  getPreviousLevelNumber,
   getStartingLevelNumber 
 } from '../game/LevelNumber';
 
@@ -36,6 +37,7 @@ interface GameContextType {
   handleUndo: () => void;
   handleResetLevel: () => void;
   handleNextLevel: () => void;
+  handlePreviousLevel: () => void;
   setDifficulty: (difficulty: Difficulty) => void;
 }
 
@@ -271,6 +273,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     generatePuzzleForLevel(nextLevel);
   }, [levelNumber, generatePuzzleForLevel]);
 
+  const handlePreviousLevel = useCallback(() => {
+    const prevLevel = getPreviousLevelNumber(levelNumber);
+    generatePuzzleForLevel(prevLevel);
+  }, [levelNumber, generatePuzzleForLevel]);
+
   const handleResetLevel = useCallback(() => {
     const puzzle = puzzleRef.current;
     if (!puzzle) return;
@@ -323,6 +330,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleUndo,
     handleResetLevel,
     handleNextLevel,
+    handlePreviousLevel,
     setDifficulty: setDifficultyHandler,
   };
 

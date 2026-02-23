@@ -3,6 +3,7 @@ import {
   encodeLevelNumber, 
   decodeLevelNumber, 
   getNextLevelNumber,
+  getPreviousLevelNumber,
   getStartingLevelNumber,
   formatLevelNumber
 } from './LevelNumber';
@@ -89,9 +90,27 @@ describe('LevelNumber', () => {
   });
 
   describe('formatLevelNumber', () => {
-    it('should format level number as string', () => {
-      expect(formatLevelNumber(10000)).toBe('10000');
-      expect(formatLevelNumber(21005)).toBe('21005');
+    it('should format level number as D-SSSS', () => {
+      expect(formatLevelNumber(10000)).toBe('1-0000');
+      expect(formatLevelNumber(21005)).toBe('2-1005');
+      expect(formatLevelNumber(35000)).toBe('3-5000');
+      expect(formatLevelNumber(49999)).toBe('4-9999');
+    });
+  });
+
+  describe('getPreviousLevelNumber', () => {
+    it('should decrement by 1 within same difficulty', () => {
+      expect(getPreviousLevelNumber(10005)).toBe(10004);
+      expect(getPreviousLevelNumber(21005)).toBe(21004);
+    });
+
+    it('should wrap to previous difficulty when seed reaches 0', () => {
+      expect(getPreviousLevelNumber(20000)).toBe(19999);
+      expect(getPreviousLevelNumber(30000)).toBe(29999);
+    });
+
+    it('should wrap from level1 back to level5', () => {
+      expect(getPreviousLevelNumber(10000)).toBe(59999);
     });
   });
 

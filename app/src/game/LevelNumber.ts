@@ -87,10 +87,29 @@ export const getDifficultyNumber = (difficulty: Difficulty): number => {
 };
 
 /**
- * Formats a level number for display
+ * Gets the previous level number (decrements by 1)
+ * When seed reaches 0, wraps to 9999 and decrements difficulty
+ * When difficulty 1 seed 0 is reached, wraps to difficulty 5 seed 9999
+ */
+export const getPreviousLevelNumber = (currentLevelNumber: number): number => {
+  const { difficulty, seed } = decodeLevelNumber(currentLevelNumber);
+  const diffNum = DIFFICULTY_TO_NUMBER[difficulty];
+  
+  if (seed <= 0) {
+    const prevDiffNum = diffNum <= 1 ? 5 : diffNum - 1;
+    return prevDiffNum * SEEDS_PER_DIFFICULTY + (SEEDS_PER_DIFFICULTY - 1);
+  }
+  
+  return currentLevelNumber - 1;
+};
+
+/**
+ * Formats a level number for display as "D-SSSS"
  */
 export const formatLevelNumber = (levelNumber: number): string => {
-  return levelNumber.toString();
+  const { difficulty, seed } = decodeLevelNumber(levelNumber);
+  const diffNum = DIFFICULTY_TO_NUMBER[difficulty];
+  return `${diffNum}-${seed.toString().padStart(4, '0')}`;
 };
 
 

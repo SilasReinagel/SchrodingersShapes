@@ -1,20 +1,18 @@
-import { PuzzleDefinition, GameBoard, PuzzleMove, ShapeId } from './types';
-import { getConstraintStatus } from './utils';
+import { PuzzleDefinition, GameBoard, PuzzleMove, ShapeId, ConstraintState } from './types';
+import { getConstraintStates } from '../components/constraints/constraintStatus';
 
 export class CurrentPuzzle {
   public readonly definition: PuzzleDefinition;
   public moveHistory: PuzzleMove[] = [];
   public currentBoard: GameBoard;
-  public currentConstraintStatuses: boolean[];
-  public previousConstraintStatuses: boolean[];
+  public currentConstraintStatuses: ConstraintState[];
+  public previousConstraintStatuses: ConstraintState[];
 
   constructor(puzzleDef: PuzzleDefinition) {
     this.definition = puzzleDef;
-    // Initial deep clone is necessary as we'll modify currentBoard
     this.currentBoard = this.deepCloneBoard(puzzleDef.initialBoard);
-    // Pre-allocate constraint statuses arrays
     this.currentConstraintStatuses = new Array(puzzleDef.constraints.length);
-    this.previousConstraintStatuses = new Array(puzzleDef.constraints.length).fill(false);
+    this.previousConstraintStatuses = new Array<ConstraintState>(puzzleDef.constraints.length).fill('in_progress');
     
     this.updateConstraintCache();
   }
@@ -86,7 +84,7 @@ export class CurrentPuzzle {
   }
 
   public isPuzzleSolved(): boolean {
-    return this.currentConstraintStatuses.every(status => status === true);
+    return this.currentConstraintStatuses.every(status => status === 'satisfied');
   }
 
   public getCanUndo(): boolean {
@@ -98,7 +96,7 @@ export class CurrentPuzzle {
   }
 
   private updateConstraintCache(): void {
-    this.currentConstraintStatuses = getConstraintStatus(this.currentBoard, this.definition.constraints);
+    this.currentConstraintStatuses = getConstraintStates(this.currentBoard, this.definition.constraints);
   }
 
   private deepCloneBoard(board: GameBoard): GameBoard {

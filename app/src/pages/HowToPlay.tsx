@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/TopBar';
@@ -8,13 +8,9 @@ import {
   SquareShape, 
   CircleShape, 
   TriangleShape,
-  ShapeId,
-  Cell,
-  ConstraintDefinition 
 } from '../game/types';
 
-// Tutorial step definitions
-type TutorialStepId = 'cats' | 'shapes' | 'constraints' | 'goal' | 'try_it';
+type TutorialStepId = 'cats' | 'shapes' | 'constraints' | 'goal';
 
 interface TutorialStepData {
   id: TutorialStepId;
@@ -23,258 +19,9 @@ interface TutorialStepData {
   content: React.ReactNode;
 }
 
-// Mini puzzle state for the "Try It" step
-interface MiniPuzzleState {
-  board: Cell[][];
-  constraints: ConstraintDefinition[];
-  selectedCell: { row: number; col: number } | null;
-  isSolved: boolean;
-}
-
-const initialMiniPuzzle: MiniPuzzleState = {
-  board: [
-    [{ shape: CatShape, locked: false }, { shape: CatShape, locked: false }],
-    [{ shape: CatShape, locked: false }, { shape: CatShape, locked: false }],
-  ],
-  constraints: [
-    { type: 'cell', x: 0, y: 0, rule: { shape: SquareShape, operator: 'is' } },
-    { type: 'cell', x: 1, y: 1, rule: { shape: CircleShape, operator: 'is' } },
-  ],
-  selectedCell: null,
-  isSolved: false,
-};
-
-// Check if a constraint is satisfied
-const isConstraintSatisfied = (constraint: ConstraintDefinition, board: Cell[][]): boolean => {
-  if (constraint.type === 'cell') {
-    const cell = board[constraint.y]?.[constraint.x];
-    if (!cell) return false;
-    
-    if (constraint.rule.operator === 'is') {
-      return cell.shape === constraint.rule.shape;
-    } else {
-      return cell.shape !== constraint.rule.shape && cell.shape !== CatShape;
-    }
-  }
-  return false;
-};
-
-// Shape Picker for mini puzzle
-const MiniShapePicker: React.FC<{
-  onSelect: (shape: ShapeId) => void;
-  onClose: () => void;
-}> = ({ onSelect, onClose }) => {
-  const shapes: ShapeId[] = [SquareShape, CircleShape, TriangleShape];
-  
-  return (
-    <motion.div
-      className="absolute inset-0 flex items-center justify-center z-20"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="flex gap-3 p-4 rounded-2xl"
-        style={{
-          background: 'rgba(15, 25, 45, 0.95)',
-          border: '2px solid rgba(0, 229, 255, 0.4)',
-          boxShadow: '0 0 40px rgba(0, 229, 255, 0.4)',
-        }}
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
-        exit={{ scale: 0.8 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {shapes.map((shape) => (
-          <motion.button
-            key={shape}
-            className="w-18 h-18 sm:w-20 sm:h-20 rounded-xl flex items-center justify-center"
-            style={{
-              width: '72px',
-              height: '72px',
-              background: 'rgba(0, 229, 255, 0.1)',
-              border: '2px solid rgba(0, 229, 255, 0.3)',
-            }}
-            whileHover={{ scale: 1.1, background: 'rgba(0, 229, 255, 0.25)' }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onSelect(shape)}
-          >
-            <div className="w-12 h-12 sm:w-14 sm:h-14">
-              <Shape type={shape} />
-            </div>
-          </motion.button>
-        ))}
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// Mini Puzzle Grid for the "Try It" step
-const MiniPuzzleGrid: React.FC<{
-  puzzle: MiniPuzzleState;
-  onCellClick: (row: number, col: number) => void;
-  onShapeSelect: (shape: ShapeId) => void;
-  onClosePicker: () => void;
-}> = ({ puzzle, onCellClick, onShapeSelect, onClosePicker }) => {
-  const { board, selectedCell } = puzzle;
-  
-  return (
-    <div className="relative">
-      <div 
-        className="grid grid-cols-2 gap-3 p-5 rounded-2xl"
-        style={{
-          background: 'rgba(30, 40, 60, 0.8)',
-          border: '2px solid rgba(0, 229, 255, 0.3)',
-          boxShadow: '0 0 30px rgba(0, 229, 255, 0.15)',
-        }}
-      >
-        {board.map((row, rowIndex) =>
-          row.map((cell, colIndex) => {
-            const isCat = cell.shape === CatShape;
-            const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex;
-            
-            return (
-              <motion.button
-                key={`${rowIndex}-${colIndex}`}
-                className={`w-24 h-24 sm:w-28 sm:h-28 rounded-xl flex items-center justify-center ${
-                  isCat ? 'cursor-pointer' : 'cursor-default'
-                }`}
-                style={{
-                  backgroundImage: 'url(/art/shape_cell_01.png)',
-                  backgroundSize: '100% 100%',
-                  border: isSelected ? '3px solid #00E5FF' : '3px solid transparent',
-                  boxShadow: isSelected ? '0 0 15px rgba(0, 229, 255, 0.5)' : 'none',
-                }}
-                whileHover={isCat ? { scale: 1.05 } : undefined}
-                whileTap={isCat ? { scale: 0.95 } : undefined}
-                onClick={() => isCat && onCellClick(rowIndex, colIndex)}
-              >
-                <div className="w-16 h-16 sm:w-20 sm:h-20">
-                  <Shape type={cell.shape} />
-                </div>
-              </motion.button>
-            );
-          })
-        )}
-      </div>
-      
-      <AnimatePresence>
-        {selectedCell && (
-          <MiniShapePicker
-            onSelect={onShapeSelect}
-            onClose={onClosePicker}
-          />
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-// Mini Constraints Panel
-const MiniConstraintsPanel: React.FC<{
-  constraints: ConstraintDefinition[];
-  board: Cell[][];
-}> = ({ constraints, board }) => {
-  const getConstraintLabel = (constraint: ConstraintDefinition): string => {
-    if (constraint.type === 'cell') {
-      const col = String.fromCharCode(65 + constraint.y); // A, B, etc.
-      const row = constraint.x + 1;
-      const shapeName = ['Cat', 'Square', 'Circle', 'Triangle'][constraint.rule.shape];
-      const op = constraint.rule.operator === 'is' ? '=' : '≠';
-      return `${col}${row} ${op} ${shapeName}`;
-    }
-    return '';
-  };
-
-  return (
-    <div 
-      className="space-y-3 p-5 rounded-2xl min-w-[180px]"
-      style={{
-        background: 'rgba(30, 40, 60, 0.8)',
-        border: '2px solid rgba(0, 229, 255, 0.3)',
-        boxShadow: '0 0 30px rgba(0, 229, 255, 0.15)',
-      }}
-    >
-      <div className="text-sm text-cyan-400 font-semibold uppercase tracking-wider mb-4">
-        Constraints
-      </div>
-      {constraints.map((constraint, index) => {
-        const satisfied = isConstraintSatisfied(constraint, board);
-        
-        return (
-          <div 
-            key={index}
-            className="flex items-center gap-3 text-base"
-          >
-            <motion.span
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                satisfied 
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/40' 
-                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
-              }`}
-              animate={satisfied ? { scale: [1, 1.2, 1] } : undefined}
-              transition={{ duration: 0.3 }}
-            >
-              {satisfied ? '✓' : '○'}
-            </motion.span>
-            <span className="text-white/90 font-medium">{getConstraintLabel(constraint)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 export const HowToPlay: React.FC = () => {
   const navigate = useNavigate();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [miniPuzzle, setMiniPuzzle] = useState<MiniPuzzleState>(initialMiniPuzzle);
-  
-  // Handle cell click in mini puzzle
-  const handleCellClick = useCallback((row: number, col: number) => {
-    setMiniPuzzle(prev => ({
-      ...prev,
-      selectedCell: prev.selectedCell?.row === row && prev.selectedCell?.col === col 
-        ? null 
-        : { row, col },
-    }));
-  }, []);
-  
-  // Handle shape selection in mini puzzle
-  const handleShapeSelect = useCallback((shape: ShapeId) => {
-    setMiniPuzzle(prev => {
-      if (!prev.selectedCell) return prev;
-      
-      const newBoard = prev.board.map((row, rowIndex) =>
-        row.map((cell, colIndex) =>
-          rowIndex === prev.selectedCell!.row && colIndex === prev.selectedCell!.col
-            ? { ...cell, shape }
-            : cell
-        )
-      );
-      
-      // Check if puzzle is solved
-      const allSatisfied = prev.constraints.every(c => isConstraintSatisfied(c, newBoard));
-      
-      return {
-        ...prev,
-        board: newBoard,
-        selectedCell: null,
-        isSolved: allSatisfied,
-      };
-    });
-  }, []);
-  
-  // Close picker
-  const handleClosePicker = useCallback(() => {
-    setMiniPuzzle(prev => ({ ...prev, selectedCell: null }));
-  }, []);
-  
-  // Reset mini puzzle
-  const resetMiniPuzzle = useCallback(() => {
-    setMiniPuzzle(initialMiniPuzzle);
-  }, []);
 
   // Tutorial steps content
   const steps: TutorialStepData[] = [
@@ -427,76 +174,6 @@ export const HowToPlay: React.FC = () => {
         </div>
       ),
     },
-    {
-      id: 'try_it',
-      title: 'Try It!',
-      subtitle: 'Your first quantum collapse',
-      content: (
-        <div className="flex flex-col items-center gap-6">
-          <div className="flex flex-col sm:flex-row gap-6 items-center">
-            <MiniPuzzleGrid
-              puzzle={miniPuzzle}
-              onCellClick={handleCellClick}
-              onShapeSelect={handleShapeSelect}
-              onClosePicker={handleClosePicker}
-            />
-            <MiniConstraintsPanel
-              constraints={miniPuzzle.constraints}
-              board={miniPuzzle.board}
-            />
-          </div>
-          
-          <AnimatePresence mode="wait">
-            {miniPuzzle.isSolved ? (
-              <motion.div
-                key="success"
-                className="flex flex-col items-center gap-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <motion.div
-                  className="text-4xl"
-                  animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ duration: 0.5, repeat: 3 }}
-                >
-                  🎉
-                </motion.div>
-                <p className="text-green-400 font-semibold text-lg">You've got it!</p>
-                <button
-                  onClick={() => navigate('/game')}
-                  className="px-6 py-3 rounded-xl font-semibold text-white"
-                  style={{
-                    background: 'linear-gradient(135deg, #00E5FF 0%, #00B8D4 100%)',
-                    boxShadow: '0 0 20px rgba(0, 229, 255, 0.4)',
-                  }}
-                >
-                  Start Playing →
-                </button>
-              </motion.div>
-            ) : (
-              <motion.p
-                key="hint"
-                className="text-white/60 text-sm text-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                Tap the cats and select shapes to satisfy both constraints
-              </motion.p>
-            )}
-          </AnimatePresence>
-          
-          {!miniPuzzle.isSolved && (
-            <button
-              onClick={resetMiniPuzzle}
-              className="text-cyan-400/60 hover:text-cyan-400 text-sm underline"
-            >
-              Reset puzzle
-            </button>
-          )}
-        </div>
-      ),
-    },
   ];
 
   const currentStep = steps[currentStepIndex];
@@ -590,16 +267,19 @@ export const HowToPlay: React.FC = () => {
             </motion.button>
           )}
           
-          {isLastStep && !miniPuzzle.isSolved && (
-            <Link to="/game">
-              <motion.button
-                className="px-6 py-3 rounded-xl font-semibold border border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10 transition-colors"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Skip to Game
-              </motion.button>
-            </Link>
+          {isLastStep && (
+            <motion.button
+              onClick={() => navigate('/game')}
+              className="px-6 py-3 rounded-xl font-semibold text-white"
+              style={{
+                background: 'linear-gradient(135deg, #00E5FF 0%, #00B8D4 100%)',
+                boxShadow: '0 0 20px rgba(0, 229, 255, 0.4)',
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Start Playing →
+            </motion.button>
           )}
         </div>
 
